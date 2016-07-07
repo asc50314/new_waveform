@@ -12,11 +12,18 @@ Mode.Trans = 'OFDM'; % OFDM/WOLA/FBMC/UFMC
 %--------------------------------------------------------------------------
 % Execution Parameters
 %--------------------------------------------------------------------------
-Param.SymbolNum = 5;
-Param.FFTSize = 2048;
-Param.CPLength = 144;
+Param.run = 10;
+Param.sample_rate = 10*10^6;
+Param.SymbolNum = 60;
+Param.FFTSize = 12;
+Param.CPLength = 1;
+
 %--------------------------------------------------------------------------
 % Frame Generating
 %--------------------------------------------------------------------------
 % [Param] = param_setting(Mode);
 [Frame] = frame_gen(Mode,Param);
+psd_Frame = fftshift(fft(Frame));
+psd_Frame = (1/)
+
+plot(freq_Frame)
