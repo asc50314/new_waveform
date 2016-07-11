@@ -33,9 +33,9 @@ for run_count = 1:Param.run
                       -3+i  -1+i  1+i  3+i  ];
     Symbol16QAM = zeros(1,Param.FFTSize);
     for data_count = Param.BandStart:Param.BandStart+Param.ToneNum-1  % random sequence mapping to 16QAM
-      GrayIndex = num2str([Frame.Data_Bitstream(:,data_count+(symbol_count-1)*Param.FFTSize)]);
+      GrayIndex = num2str([Frame.Data_Bitstream(:,data_count-Param.BandStart+1)]);
       GrayIndex = bin2dec(GrayIndex .');
-      Symbol16QAM(data_count) = Gray16QAMmap(GrayIndex+2)/10^0.5;
+      Symbol16QAM(data_count) = Gray16QAMmap(GrayIndex+1)/10^0.5;
     end
     %-- Time-domain Symbol Generating
     %-- iFFT
@@ -58,7 +58,8 @@ for run_count = 1:Param.run
         %-- Add CP
         SymbolTD = [SymbolTD(end-Param.CPLength+1:end) SymbolTD]; 
         % Frame.Frame_TX((symbol_count-1)*(Param.CPLength+Param.FFTSize)+1:symbol_count*(Param.CPLength+Param.FFTSize)) = SymbolTD;
-        Frame.Frame_TX(end+1:end+length(SymbolTD)) = SymbolTD;
+%         Frame.Frame_TX(end+1:end+length(SymbolTD)) = SymbolTD;
+        Frame.Frame_TX = [Frame.Frame_TX SymbolTD];
       case 'WOLA'
         %-- Add CP
         SymbolTD = [SymbolTD(end-Param.CPLength-Param.RollOffPeriod/2+1:end) SymbolTD SymbolTD(1:Param.RollOffPeriod/2)];
