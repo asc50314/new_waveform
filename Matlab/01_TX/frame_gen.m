@@ -32,7 +32,7 @@ Gray16QAMmap = [  -3-3i -1-3i 1-3i 3-3i ...
 %                   3+3i 3+3i 3+3i 3+3i...
 %                   3+3i 3+3i 3+3i 3+3i];
 
-for run_count = 1:Param.run
+
   %Frame initializing
   switch Mode.Trans
     case 'OFDM'
@@ -82,8 +82,15 @@ for run_count = 1:Param.run
       case 'OFDM'
         %-- Add CP
         SymbolTD = [SymbolTD(end-Param.CPLength+1:end) SymbolTD];
-        %Attach the current symbol to frame
-        Frame.Frame_TX(end+1:end+length(SymbolTD)) = SymbolTD;
+        %--DAC Upsample and pass through LPF
+        if(Param.UpSampleDAC > 1)
+          TempSymbolTD = zeros(1,Param.UpSampleDAC*length(SymbolTD));
+          TempSymbolTD(1:Param.UpSampleDAC:end) = SymbolTD;
+          TempSymbolTD = conv(TempSymbolTD,Param.DACInterpoFunc);
+          Frame.Frame_TX(end+1:end+length(TempSymbolTD)) = TempSymbolTD;
+        else
+          Frame.Frame_TX(end+1:end+length(SymbolTD)) = SymbolTD;
+        end
       case 'WOLA' %(Refer "OFDM Versus FBMC" p.95 FILTERING)
         %Add CPrefix and CPostfix
         SymbolTD = [SymbolTD(end-Param.CPLength-Param.RollOffPeriod/2+1:end) SymbolTD SymbolTD(1:Param.RollOffPeriod/2)];
@@ -96,4 +103,4 @@ for run_count = 1:Param.run
         Frame.Frame_TX(end+1:end+Param.CPLength+Param.FFTSize+Param.RollOffPeriod/2) = SymbolTD(Param.RollOffPeriod/2+1:end);
     end
   end
-end
+
