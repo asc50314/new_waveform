@@ -22,6 +22,16 @@ end
 %-----------------------------
 % Frame Generating
 %-----------------------------
+Gray16QAMmap = [  -3-3i -1-3i 1-3i 3-3i ...
+                  -3-i  -1-i  1-i  3-i  ...
+                  -3+3i -1+3i 1+3i 3+3i ...
+                  -3+i  -1+i  1+i  3+i  ];
+
+% Gray16QAMmap = [  3+3i 3+3i 3+3i 3+3i...
+%                   3+3i 3+3i 3+3i 3+3i...
+%                   3+3i 3+3i 3+3i 3+3i...
+%                   3+3i 3+3i 3+3i 3+3i];
+
 for run_count = 1:Param.run
   %Frame initializing
   switch Mode.Trans
@@ -39,10 +49,6 @@ for run_count = 1:Param.run
     %-----------------------------
     % Constellation Mapping (16QAM)
     %-----------------------------
-    Gray16QAMmap = [  -3-3i -1-3i 1-3i 3-3i ...
-                      -3-i  -1-i  1-i  3-i  ...
-                      -3+3i -1+3i 1+3i 3+3i ...
-                      -3+i  -1+i  1+i  3+i  ];
     Symbol16QAM = zeros(1,Param.FFTSize);
     for data_count = Param.BandStart:Param.BandStart+Param.ToneNum-1  % random sequence mapping to 16QAM
       GrayIndex = num2str([Frame.Data_Bitstream(:,data_count-Param.BandStart+1)]);
@@ -58,8 +64,8 @@ for run_count = 1:Param.run
     %-----------------------------
     %iFFT
     SymbolTD = ifft(Symbol16QAM);
+    %Symbol Up-sample
     if(Param.SymbolUpSample > 1)
-      %Symbol Up-sample
       for data_count = 1:Param.FFTSize
         SymbolTDup((data_count-1)*Param.SymbolUpSample+1:(data_count)*Param.SymbolUpSample) = [SymbolTD(data_count) zeros(1,Param.SymbolUpSample-1)];
       end
