@@ -23,6 +23,8 @@ Gray16QAMmap = [  -3-3i -1-3i 1-3i 3-3i ...
                   -3-i  -1-i  1-i  3-i  ...
                   -3+3i -1+3i 1+3i 3+3i ...
                   -3+i  -1+i  1+i  3+i  ];
+GrayQPSKmap = [  -3-3i 3-3i ...
+                  -3+3i 3+3i];
 %Frame initializing
 switch Mode.Trans
   case 'OFDM'
@@ -31,7 +33,7 @@ switch Mode.Trans
     Frame.Frame_TX = zeros(1,Param.RollOffPeriod/2);
 end
 %Original Data Bit Stream (16QAM)
-Frame.Data_Bitstream = randi([0,1],[4,Param.SymbolNum*Param.ToneNum]);
+Frame.Data_Bitstream = randi([0,1],[2,Param.SymbolNum*Param.ToneNum]);
 %-----------------------------
 % Symbol Generating
 %-----------------------------
@@ -43,7 +45,7 @@ for symbol_count = 1:Param.SymbolNum
   for data_count = Param.BandStart:Param.BandStart+Param.ToneNum-1  % random sequence mapping to 16QAM
     GrayIndex = num2str([Frame.Data_Bitstream(:,data_count-Param.BandStart+1)]);
     GrayIndex = bin2dec(GrayIndex .');
-    Symbol16QAM(data_count) = Gray16QAMmap(GrayIndex+1)/10^0.5;
+    Symbol16QAM(data_count) = GrayQPSKmap(GrayIndex+1)/10^0.5;
   end
   %===============test========================
   % Symbol16QAM = zeros(1,Param.FFTSize);
@@ -103,4 +105,7 @@ for symbol_count = 1:Param.SymbolNum
       Frame.Frame_TX(end+1,:) = 0;
   end
 end
-Frame.Frame_TX(end,:) = [];
+
+if(Mode.Trans eq 'WOLD')
+  Frame.Frame_TX(end,:) = [];
+end
