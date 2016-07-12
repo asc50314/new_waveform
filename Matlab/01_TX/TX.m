@@ -15,9 +15,9 @@ Mode.Trans = 'OFDM'; % OFDM/WOLA/FBMC/UFMC
 Param.run             = 1000;
 Param.sample_rate     = 1200;
 Param.SymbolNum       = 60;
-Param.FFTSize         = 128;
+Param.FFTSize         = 1024;
 Param.CPLength        = round(Param.FFTSize*0.1); %CP number of sample after symbol up-sample
-Param.BandStart       = 64;
+Param.BandStart       = 508;
 Param.ToneNum         = 12;
 
 Param.SymbolUpSample  = 1;
@@ -34,16 +34,16 @@ end
 Param.RollOffPeriod   = round(Param.FFTSize*0.0781/2)*2; %Number of sample after symbol up-sample
 
 %For PSD plot
-Param.STFTupSample    = 4;
-Param.STFTsize        = Param.FFTSize*Param.STFTupSample;
-Param.FFTCentral      = (Param.BandStart+Param.ToneNum/2)*Param.STFTupSample;
-Param.FFTBand         = 100*Param.STFTupSample;
-Param.FFTMove         = Param.FFTSize*Param.STFTupSample/2;
+% Param.STFTupSample    = 4;
+% Param.STFTsize        = Param.FFTSize*Param.STFTupSample;
+% Param.FFTCentral      = (Param.BandStart+Param.ToneNum/2)*Param.STFTupSample;
+% Param.FFTBand         = 100*Param.STFTupSample;
+% Param.FFTMove         = Param.FFTSize*Param.STFTupSample/2;
 %--------------------------------------------------------------------------
 % Frame Generating
 %--------------------------------------------------------------------------
 % [Param] = param_setting(Mode);
-for case_mode = 2:2
+for case_mode = 1:2
     if(case_mode == 1)
         Mode.Trans = 'OFDM';
     else
@@ -52,14 +52,16 @@ for case_mode = 2:2
      FrameFD = [];
     for run_count = 1:Param.run
         Frame = frame_gen(Mode,Param);
-        Frame.Frame_TX(end+1:end+Param.STFTsize) = zeros(1,Param.STFTsize);   
-        TempFrameFD = zeros(1,Param.STFTsize);
-        for move_count = 1:Param.FFTMove:length(Frame.Frame_TX)-Param.STFTsize
-            TempFrameFD = TempFrameFD + abs(fft(Frame.Frame_TX(move_count:move_count+Param.STFTsize-1))).^2;
+%         Frame.Frame_TX(end+1:end+Param.STFTsize) = zeros(1,Param.STFTsize);   
+%         TempFrameFD = zeros(1,Param.STFTsize);
+%         for move_count = 1:Param.FFTMove:length(Frame.Frame_TX)-Param.STFTsize
+%         TempFrameFD = TempFrameFD + abs(fft(Frame.Frame_TX(move_count:move_count+Param.STFTsize-1))).^2;
             % TempFrameFD = fftshift(TempFrameFD);
-        end
-        TempFrameFD = TempFrameFD./move_count;
-        FrameFD = [FrameFD;TempFrameFD]; 
+%         end!
+        TempFrameFD = fft(Frame.Frame_TX.',4*Param.FFTSize).';
+        PSD = TempFrameFD.*conj(TempFrameFD);
+%         TempFrameFD = TempFrameFD./move_count;
+        FrameFD = [FrameFD;PSD]; 
     end
 
     %--------------------------------------------------------------------------
@@ -67,20 +69,19 @@ for case_mode = 2:2
     %--------------------------------------------------------------------------
    
     AvgFrame = mean(FrameFD);
+   AvgFrame = AvgFrame/max(AvgFrame);
     
+%     set(gca,'ytick',[-40 -30 -20 -10 0]);
     if(case_mode == 1)
-        figure(1)
-        plot([1:1/Param.STFTupSample:length(AvgFrame)/Param.STFTupSample+1-1/Param.STFTupSample],10*log10(AvgFrame));
-        title('OFDM PSD');
-        ylabel('dB');
-        
+        plot([-50:0.25:50],10*log10(AvgFrame((Param.BandStart-46)*4:(Param.BandStart+54)*4)),'k');
+        hold on      
     else
-       figure(2)
-        plot([1:1/Param.STFTupSample:length(AvgFrame)/Param.STFTupSample+1-1/Param.STFTupSample],10*log10(AvgFrame));
-        title('WOLA PSD');
-        ylabel('dB');
-        
+       plot([-50:0.25:50],10*log10(AvgFrame((Param.BandStart-46)*4:(Param.BandStart+54)*4)),'g');
+        ylabel('dB');    
+        xlabel('Normalized freq [1/T]');
     end
     
 end
 
+legend('CP-OFDM','WOLA');
+grid on

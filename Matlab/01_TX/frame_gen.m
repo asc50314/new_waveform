@@ -106,6 +106,6 @@ for symbol_count = 1:Param.SymbolNum
   end
 end
 
-if(Mode.Trans eq 'WOLD')
+if(Mode.Trans == 'WOLA')
   Frame.Frame_TX(end,:) = [];
 end
