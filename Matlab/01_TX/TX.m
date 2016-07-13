@@ -16,12 +16,11 @@ Mode.Mapping  = 'QPSK'; % QPSK/16QAM
 %-----------------------------
 % Parameters Setting
 %-----------------------------
-Param.run             = 1;
+Param.run             = 100;
 Param.sample_rate     = 1200;
 Param.SymbolNum       = 1;
 Param.FFTSize         = 1024;
 Param.CPratio         = 0.1;
-
 Param.ToneNum         = 600;
 
 Param.UpSampleDAC  = 1;
@@ -44,11 +43,10 @@ switch Mode.Trans
 end
 
 %For PSD plot
-% Param.STFTupSample    = 4;
-% Param.STFTsize        = Param.FFTSize*Param.STFTupSample;
-% Param.FFTCentral      = (Param.BandStart+Param.ToneNum/2)*Param.STFTupSample;
-% Param.FFTBand         = 100*Param.STFTupSample;
-% Param.FFTMove         = Param.FFTSize*Param.STFTupSample/2;
+Param.PlotUpSample    = 4;
+Param.PlotRightBand   = 55;
+Param.PlotLeftBand    = 45;
+
 %--------------------------------------------------------------------------
 % Frame Generating
 %--------------------------------------------------------------------------
@@ -68,7 +66,7 @@ for case_mode = 1:2
 %         TempFrameFD = TempFrameFD + abs(fft(Frame.Frame_TX(move_count:move_count+Param.STFTsize-1))).^2;
             % TempFrameFD = fftshift(TempFrameFD);
 %         end!
-        TempFrameFD = fft(Frame.Frame_TX.',4*Param.FFTSize).';
+        TempFrameFD = fftshift(fft(Frame.Frame_TX.',Param.PlotUpSample*Param.FFTSize)).';
         PSD = TempFrameFD.*conj(TempFrameFD);
 %         TempFrameFD = TempFrameFD./move_count;
         FrameFD = [FrameFD;PSD]; 
@@ -83,10 +81,14 @@ for case_mode = 1:2
     
 %     set(gca,'ytick',[-40 -30 -20 -10 0]);
     if(case_mode == 1)
-        plot([-50:0.25:50],10*log10(AvgFrame((Param.BandStart-46)*4:(Param.BandStart+54)*4)),'k');
+        plot([-(Param.PlotLeftBand+Param.PlotRightBand)/2:1/Param.PlotUpSample:(Param.PlotLeftBand+Param.PlotRightBand)/2],...
+        10*log10(AvgFrame((length(AvgFrame)/2-Param.PlotLeftBand*Param.PlotUpSample)...
+                         :(length(AvgFrame)/2+Param.PlotRightBand*Param.PlotUpSample))),'k');
         hold on      
     else
-       plot([-50:0.25:50],10*log10(AvgFrame((Param.BandStart-46)*4:(Param.BandStart+54)*4)),'g');
+        plot([-(Param.PlotLeftBand+Param.PlotRightBand)/2:1/Param.PlotUpSample:(Param.PlotLeftBand+Param.PlotRightBand)/2],...
+        10*log10(AvgFrame((length(AvgFrame)/2-Param.PlotLeftBand*Param.PlotUpSample)...
+                         :(length(AvgFrame)/2+Param.PlotRightBand*Param.PlotUpSample))),'g');
         ylabel('dB');    
         xlabel('Normalized freq [1/T]');
     end

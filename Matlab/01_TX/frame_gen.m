@@ -45,7 +45,7 @@ end
 
 for symbol_count = 1:Param.SymbolNum
   %-----------------------------
-  % Constellation Mapping (16QAM)
+  % Constellation Mapping
   %-----------------------------
   SymbolFD = zeros(1,Param.FFTSize);
   data_count = 1;
