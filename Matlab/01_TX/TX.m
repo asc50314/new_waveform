@@ -8,7 +8,7 @@ clear all; close all; clc;
 %--------------------------------------------------------------------------
 % Mode Parameters
 %--------------------------------------------------------------------------
-Mode.Trans    = 'OFDM'; % OFDM/WOLA/FBMC/UFMC
+Mode.Trans    = 'WOLA'; % OFDM/WOLA/FBMC/UFMC
 Mode.Mapping  = 'QPSK'; % QPSK/16QAM
 %--------------------------------------------------------------------------
 % Execution Parameters
@@ -16,16 +16,16 @@ Mode.Mapping  = 'QPSK'; % QPSK/16QAM
 %-----------------------------
 % Parameters Setting
 %-----------------------------
-Param.run             = 100;
+Param.run             = 1;
 Param.sample_rate     = 1200;
-Param.SymbolNum       = 1;
+Param.SymbolNum       = 2;
 Param.FFTSize         = 1024;
 Param.CPratio         = 0.1;
-Param.ToneNum         = 600;
+Param.ToneNum         = 12;
 
 Param.UpSampleDAC  = 1;
 if(Param.UpSampleDAC > 1)
-  Param.DACInterpoFunc   = rcosine(1, Param.UpSampleDAC, 'fir', 0.25, 3);
+  Param.DACInterpoFunc   = rcosine(1, Param.UpSampleDAC, 'fir', 0.2, 4);
 end
 
 %For WOLA
@@ -39,7 +39,7 @@ switch Mode.Trans
     Param.CPLength = round(Param.FFTSize/(1-Param.CPratio)*Param.CPratio);
   case 'WOLA'
     Param.CPLength = round(Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.CPratio);
-    Param.RollOffPeriod = round(Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.RollOffRatio);
+    Param.RollOffPeriod = round((Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.RollOffRatio)/2)*2;
 end
 
 %For PSD plot
@@ -56,6 +56,8 @@ for case_mode = 1:2
         Mode.Trans = 'OFDM';
     else
         Mode.Trans = 'WOLA';
+        Param.CPLength = round(Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.CPratio);
+        Param.RollOffPeriod = round((Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.RollOffRatio)/2)*2;
     end
      FrameFD = [];
     for run_count = 1:Param.run
@@ -66,7 +68,12 @@ for case_mode = 1:2
 %         TempFrameFD = TempFrameFD + abs(fft(Frame.Frame_TX(move_count:move_count+Param.STFTsize-1))).^2;
             % TempFrameFD = fftshift(TempFrameFD);
 %         end!
-        TempFrameFD = fftshift(fft(Frame.Frame_TX.',Param.PlotUpSample*Param.FFTSize)).';
+        if(Param.UpSampleDAC > 1)
+          Frame.Frame_TX = upsample(Frame.Frame_TX,Param.UpSampleDAC);
+          Frame.Frame_TX = conv(Frame.Frame_TX,Param.DACInterpoFunc);
+        end
+        PSD_FFTSize = ceil(length(Frame.Frame_TX)/Param.FFTSize)*Param.FFTSize;
+        TempFrameFD = fftshift(fft(Frame.Frame_TX.',PSD_FFTSize)).';
         PSD = TempFrameFD.*conj(TempFrameFD);
 %         TempFrameFD = TempFrameFD./move_count;
         FrameFD = [FrameFD;PSD]; 
@@ -76,25 +83,25 @@ for case_mode = 1:2
     % Frame PSD
     %--------------------------------------------------------------------------
    
-    AvgFrame = mean(FrameFD);
-   AvgFrame = AvgFrame/max(AvgFrame);
+%     AvgFrame = mean(FrameFD);
+%    AvgFrame = AvgFrame/max(AvgFrame);
     
-%     set(gca,'ytick',[-40 -30 -20 -10 0]);
-    if(case_mode == 1)
-        plot([-(Param.PlotLeftBand+Param.PlotRightBand)/2:1/Param.PlotUpSample:(Param.PlotLeftBand+Param.PlotRightBand)/2],...
-        10*log10(AvgFrame((length(AvgFrame)/2-Param.PlotLeftBand*Param.PlotUpSample)...
-                         :(length(AvgFrame)/2+Param.PlotRightBand*Param.PlotUpSample))),'k');
-        hold on      
-    else
-        plot([-(Param.PlotLeftBand+Param.PlotRightBand)/2:1/Param.PlotUpSample:(Param.PlotLeftBand+Param.PlotRightBand)/2],...
-        10*log10(AvgFrame((length(AvgFrame)/2-Param.PlotLeftBand*Param.PlotUpSample)...
-                         :(length(AvgFrame)/2+Param.PlotRightBand*Param.PlotUpSample))),'g');
-        ylabel('dB');    
-        xlabel('Normalized freq [1/T]');
-    end
+% %     set(gca,'ytick',[-40 -30 -20 -10 0]);
+%     if(case_mode == 1)
+%         plot([-(Param.PlotLeftBand+Param.PlotRightBand)/2:1/Param.PlotUpSample:(Param.PlotLeftBand+Param.PlotRightBand)/2],...
+%         10*log10(AvgFrame((length(AvgFrame)/2-Param.PlotLeftBand*Param.PlotUpSample)...
+%                          :(length(AvgFrame)/2+Param.PlotRightBand*Param.PlotUpSample))),'k');
+%         hold on      
+%     else
+%         plot([-(Param.PlotLeftBand+Param.PlotRightBand)/2:1/Param.PlotUpSample:(Param.PlotLeftBand+Param.PlotRightBand)/2],...
+%         10*log10(AvgFrame((length(AvgFrame)/2-Param.PlotLeftBand*Param.PlotUpSample)...
+%                          :(length(AvgFrame)/2+Param.PlotRightBand*Param.PlotUpSample))),'g');
+%         ylabel('dB');    
+%         xlabel('Normalized freq [1/T]');
+%     end
     
 end
 
-legend('CP-OFDM','WOLA');
-grid on
-axis([-inf inf -100 0]);
+% legend('CP-OFDM','WOLA');
+% grid on
+% axis([-inf inf -100 0]);
