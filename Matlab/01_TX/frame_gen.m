@@ -69,7 +69,7 @@ for symbol_count = 1:Param.SymbolNum
   % Time-domain Symbol Generating
   %-----------------------------
   %iFFT
-  SymbolTD = ifft(SymbolFD);
+  SymbolTD = ifft(ifftshift(SymbolFD));
   %-----------------------------
   % Adding aid structure for specific transmission
   %-----------------------------
