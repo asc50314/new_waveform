@@ -17,14 +17,24 @@ switch Mode.Trans
 end
 
 %-----------------------------
-% Frame Generating
+% Original Data Bit Stream Generating
 %-----------------------------
 Gray16QAMmap = [  -3-3i -1-3i 1-3i 3-3i ...
                   -3-i  -1-i  1-i  3-i  ...
                   -3+3i -1+3i 1+3i 3+3i ...
                   -3+i  -1+i  1+i  3+i  ];
-GrayQPSKmap = [  -3-3i 3-3i ...
+GrayQPSKmap = [   -3-3i 3-3i ...
                   -3+3i 3+3i];
+%Original Data Bit Stream (16QAM)
+switch Mode.Mapping
+  case 'QPSK'
+    Frame.Data_Bitstream = randi([0,1],[2,Param.SymbolNum*Param.ToneNum]);
+  case '16QAM'
+    Frame.Data_Bitstream = randi([0,1],[4,Param.SymbolNum*Param.ToneNum]);
+end
+%-----------------------------
+% Symbol Generating
+%-----------------------------
 %Frame initializing
 switch Mode.Trans
   case 'OFDM'
@@ -32,20 +42,24 @@ switch Mode.Trans
   case 'WOLA'
     Frame.Frame_TX = zeros(1,Param.RollOffPeriod/2);
 end
-%Original Data Bit Stream (16QAM)
-Frame.Data_Bitstream = randi([0,1],[2,Param.SymbolNum*Param.ToneNum]);
-%-----------------------------
-% Symbol Generating
-%-----------------------------
+
 for symbol_count = 1:Param.SymbolNum
   %-----------------------------
   % Constellation Mapping (16QAM)
   %-----------------------------
-  Symbol16QAM = zeros(1,Param.FFTSize);
-  for data_count = Param.BandStart:Param.BandStart+Param.ToneNum-1  % random sequence mapping to 16QAM
-    GrayIndex = num2str([Frame.Data_Bitstream(:,data_count-Param.BandStart+1)]);
+  SymbolFD = zeros(1,Param.FFTSize);
+  data_count = 1;
+  for tone_i = [Param.FFTSize/2 - ceil(Param.ToneNum/2)+1 : Param.FFTSize/2 ...
+    Param.FFTSize/2+2 : Param.FFTSize/2+2 + floor(Param.ToneNum/2)-1]  % random sequence mapping to 16QAM
+    GrayIndex = num2str([Frame.Data_Bitstream(:,(symbol_count-1)*Param.ToneNum+data_count)]);
     GrayIndex = bin2dec(GrayIndex .');
-    Symbol16QAM(data_count) = GrayQPSKmap(GrayIndex+1)/10^0.5;
+    switch Mode.Mapping
+      case 'QPSK'
+        SymbolFD(tone_i) = GrayQPSKmap(GrayIndex+1)/10^0.5;
+      case '16QAM'
+        SymbolFD(tone_i) = Gray16QAMmap(GrayIndex+1)/10^0.5;
+    end
+    data_count = data_count + 1;
   end
   %===============test========================
   % Symbol16QAM = zeros(1,Param.FFTSize);
@@ -55,18 +69,7 @@ for symbol_count = 1:Param.SymbolNum
   % Time-domain Symbol Generating
   %-----------------------------
   %iFFT
-  SymbolTD = ifft(Symbol16QAM);
-  %Symbol Up-sample
-  if(Param.SymbolUpSample > 1)
-    for data_count = 1:Param.FFTSize
-      SymbolTDup((data_count-1)*Param.SymbolUpSample+1:(data_count)*Param.SymbolUpSample) = [SymbolTD(data_count) zeros(1,Param.SymbolUpSample-1)];
-    end
-    %RC Interpolation
-    SymbolTDupInterpo = cconv(SymbolTDup, Param.SymbolInterpoFunc, length(SymbolTDup));
-    SymbolTDupInterpo = circshift(SymbolTDupInterpo,[0 -Param.SymbolUpSample*Param.SymbolInterpoDelay]);
-    SymbolTD = SymbolTDupInterpo;
-    clear SymbolTDupInterpo;
-  end
+  SymbolTD = ifft(SymbolFD);
   %-----------------------------
   % Adding aid structure for specific transmission
   %-----------------------------

@@ -8,30 +8,40 @@ clear all; close all; clc;
 %--------------------------------------------------------------------------
 % Mode Parameters
 %--------------------------------------------------------------------------
-Mode.Trans = 'OFDM'; % OFDM/WOLA/FBMC/UFMC
+Mode.Trans    = 'OFDM'; % OFDM/WOLA/FBMC/UFMC
+Mode.Mapping  = 'QPSK'; % QPSK/16QAM
 %--------------------------------------------------------------------------
 % Execution Parameters
 %--------------------------------------------------------------------------
-Param.run             = 1000;
+%-----------------------------
+% Parameters Setting
+%-----------------------------
+Param.run             = 1;
 Param.sample_rate     = 1200;
-Param.SymbolNum       = 60;
+Param.SymbolNum       = 1;
 Param.FFTSize         = 1024;
-Param.CPLength        = round(Param.FFTSize*0.1); %CP number of sample after symbol up-sample
-Param.BandStart       = 508;
-Param.ToneNum         = 12;
+Param.CPratio         = 0.1;
 
-Param.SymbolUpSample  = 1;
-Param.SymbolInterpoDelay  = 4;
-if(Param.SymbolUpSample > 1)
-  Param.SymbolInterpoFunc   = rcosine(1, Param.SymbolUpSample, 'fir', 0.25, Param.SymbolInterpoDelay);
-end
+Param.ToneNum         = 600;
 
 Param.UpSampleDAC  = 1;
 if(Param.UpSampleDAC > 1)
   Param.DACInterpoFunc   = rcosine(1, Param.UpSampleDAC, 'fir', 0.25, 3);
 end
+
 %For WOLA
-Param.RollOffPeriod   = round(Param.FFTSize*0.0781/2)*2; %Number of sample after symbol up-sample
+Param.RollOffRatio    = 0.0781;
+
+%--------------------------------------------------------------------------
+% Auto Generated Parameters 
+%--------------------------------------------------------------------------
+switch Mode.Trans
+  case 'OFDM'
+    Param.CPLength = round(Param.FFTSize/(1-Param.CPratio)*Param.CPratio);
+  case 'WOLA'
+    Param.CPLength = round(Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.CPratio);
+    Param.RollOffPeriod = round(Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.RollOffRatio);
+end
 
 %For PSD plot
 % Param.STFTupSample    = 4;
@@ -85,3 +95,4 @@ end
 
 legend('CP-OFDM','WOLA');
 grid on
+axis([-inf inf -100 0]);
