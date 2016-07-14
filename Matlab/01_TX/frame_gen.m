@@ -90,36 +90,19 @@ for symbol_count = 1:Param.SymbolNum
   %-----------------------------
   switch Mode.Trans
     case 'OFDM'
-      %-- Add CP
+      % Add CP to current symbol
       SymbolTD = [SymbolTD(end-Param.CPLength+1:end) SymbolTD];
-      %-----------------------------
-      % Real frame
-      %-----------------------------
+      % Attach current symbol to Frame_TX
       Frame.Frame_TX(end+1:end+length(SymbolTD)) = SymbolTD;
-      %-----------------------------
-      % Symbol frame
-      %-----------------------------
-      % Frame.Frame_TX(end+1,:) = SymbolTD;
     case 'WOLA' %(Refer "OFDM Versus FBMC" p.95 FILTERING)
-      %Add CPrefix and CPostfix
+      %Add CPrefix and CPostfix to current symbol
       SymbolTD = [SymbolTD(end-Param.CPLength-Param.RollOffPeriod/2+1:end) SymbolTD SymbolTD(1:Param.RollOffPeriod/2)];
       %CP weighting
       SymbolTD(1:Param.RollOffPeriod) = SymbolTD(1:Param.RollOffPeriod) .* WeightFunc;
       SymbolTD(end-Param.RollOffPeriod+1:end) = SymbolTD(end-Param.RollOffPeriod+1:end) .* fliplr(WeightFunc);
-      %-----------------------------
-      % Real frame
-      %-----------------------------
       %Symbol overlap adding
       Frame.Frame_TX(end-Param.RollOffPeriod/2+1:end) = Frame.Frame_TX(end-Param.RollOffPeriod/2+1:end) + SymbolTD(1:Param.RollOffPeriod/2);
-      %Attach rest of the symbol to frame
+      %Attach rest of the symbol to Frame_TX
       Frame.Frame_TX(end+1:end+Param.CPLength+Param.FFTSize+Param.RollOffPeriod/2) = SymbolTD(Param.RollOffPeriod/2+1:end);
-      %-----------------------------
-      % Symbol frame
-      %-----------------------------
-      % %Symbol overlap adding
-      % Frame.Frame_TX(end,1:Param.RollOffPeriod/2) = Frame.Frame_TX(end-Param.RollOffPeriod/2+1:end) + SymbolTD(1:Param.RollOffPeriod/2);
-      % %Attach rest of the symbol to frame
-      % Frame.Frame_TX(end,Param.RollOffPeriod/2+1:Param.RollOffPeriod/2+Param.CPLength+Param.FFTSize+Param.RollOffPeriod/2) = SymbolTD(Param.RollOffPeriod/2+1:end);
-      % Frame.Frame_TX(end+1,:) = 0;
   end
 end

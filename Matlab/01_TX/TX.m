@@ -18,15 +18,23 @@ Mode.Mapping  = 'QPSK'; % QPSK/16QAM
 %-----------------------------
 Param.run             = 1000;
 Param.sample_rate     = 1200;
-Param.SymbolNum       = 60;
+Param.SymbolNum       = 10;
 Param.FFTSize         = 1024;
 Param.CPratio         = 0.1;
 Param.ToneNum         = 12;
 Param.CarrierSp       = 0.015;
 
-Param.UpSampleDAC  = 1;
+%Symbol oversample
+Param.OverSample      = 4;
+if(Param.OverSample > 1)
+  Param.PaulseShapeFunc    = SRRCFlt(Param.OverSample, 0.25, 2);
+end
+
+%DAC up-sample
+Param.UpSampleDAC  = 16;
 if(Param.UpSampleDAC > 1)
-  Param.DACInterpoFunc   = rcosine(1, Param.UpSampleDAC, 'fir', 0.2, 4);
+  Param.DACInterpoFunc   = SRRCFlt(Param.UpSampleDAC, 0.4, 4);
+  % Param.DACInterpoFunc   = rcosine(1, Param.UpSampleDAC, 'fir/sqrt', 0.4, 4);
 end
 Param.DCTerm          = 1;  % 0: DC = 0 ; 1: DC != 0
 Param.ClipThreshold   = inf; % [dB], inf for no clipping
