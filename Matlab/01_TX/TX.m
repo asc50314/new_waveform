@@ -18,15 +18,21 @@ Mode.Mapping  = 'QPSK'; % QPSK/16QAM
 %-----------------------------
 Param.run             = 10;
 Param.sample_rate     = 1200;
-Param.SymbolNum       = 20;
+Param.SymbolNum       = 10;
 Param.FFTSize         = 1024;
 Param.CPratio         = 0.1;
 Param.ToneNum         = 600;
 Param.CarrierSp       = 0.015;
-
+%Symbol oversample
+Param.OverSample      = 4;
+if(Param.OverSample > 1)
+  Param.PaulseShapeFunc    = SRRCFlt(Param.OverSample, 0.25, 2);
+end
+%DAC up-sample
 Param.UpSampleDAC  = 16;
 if(Param.UpSampleDAC > 1)
-  Param.DACInterpoFunc   = rcosine(1, Param.UpSampleDAC, 'fir', 0.2, 4);
+  Param.DACInterpoFunc   = SRRCFlt(Param.UpSampleDAC, 0.4, 4);
+  % Param.DACInterpoFunc   = rcosine(1, Param.UpSampleDAC, 'fir/sqrt', 0.4, 4);
 end
 
 %For WOLA
