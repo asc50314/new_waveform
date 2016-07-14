@@ -16,16 +16,16 @@ Mode.Mapping  = 'QPSK'; % QPSK/16QAM
 %-----------------------------
 % Parameters Setting
 %-----------------------------
-Param.run             = 1000;
+Param.run             = 10;
 Param.sample_rate     = 1200;
 Param.SymbolNum       = 10;
 Param.FFTSize         = 1024;
 Param.CPratio         = 0.1;
-Param.ToneNum         = 12;
+Param.ToneNum         = 600;
 Param.CarrierSp       = 0.015;
 
 %Symbol oversample
-Param.OverSample      = 4;
+Param.OverSample      = 1;
 if(Param.OverSample > 1)
   Param.PaulseShapeFunc    = SRRCFlt(Param.OverSample, 0.25, 2);
 end
@@ -37,7 +37,7 @@ if(Param.UpSampleDAC > 1)
   % Param.DACInterpoFunc   = rcosine(1, Param.UpSampleDAC, 'fir/sqrt', 0.4, 4);
 end
 Param.DCTerm          = 1;  % 0: DC = 0 ; 1: DC != 0
-Param.ClipThreshold   = inf; % [dB], inf for no clipping
+Param.ClipThreshold   = 15; % [dB], inf for no clipping
 
 %For WOLA
 Param.RollOffRatio    = 0.0781;
@@ -55,9 +55,9 @@ end
 
 %For PSD plot
 Param.PlotUpSample    = 4;
-Param.PlotRightBand   = 48;
-Param.PlotLeftBand    = 52;
-Param.AxisModel       = 'SC'; % AF(analog freq)/DF(discrete freq)/SC(subcarrier)
+Param.PlotRightBand   = 1000;
+Param.PlotLeftBand    = 1000;
+Param.AxisModel       = 'CF'; % CF(analog freq)/DF(discrete freq)/SC(subcarrier)
 %--------------------------------------------------------------------------
 % Frame Generating
 %--------------------------------------------------------------------------
@@ -73,9 +73,9 @@ for clip_mode = 1:3
         
         switch clip_mode
         case 1
-            Param.ClipThreshold   = 6;
+            Param.ClipThreshold   = 10;
         case 2
-            Param.ClipThreshold   = 8;
+            Param.ClipThreshold   = 11.65;
         case 3
             Param.ClipThreshold   = inf;
     end
