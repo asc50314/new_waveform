@@ -49,18 +49,33 @@ for symbol_count = 1:Param.SymbolNum
   %-----------------------------
   SymbolFD = zeros(1,Param.FFTSize);
   data_count = 1;
-  for tone_i = [Param.FFTSize/2 - ceil(Param.ToneNum/2)+1 : Param.FFTSize/2 ...
-    Param.FFTSize/2+2 : Param.FFTSize/2+2 + floor(Param.ToneNum/2)-1]  % random sequence mapping to 16QAM
-    GrayIndex = num2str([Frame.Data_Bitstream(:,(symbol_count-1)*Param.ToneNum+data_count)]);
-    GrayIndex = bin2dec(GrayIndex .');
-    switch Mode.Mapping
-      case 'QPSK'
-        SymbolFD(tone_i) = GrayQPSKmap(GrayIndex+1)/10^0.5;
-      case '16QAM'
-        SymbolFD(tone_i) = Gray16QAMmap(GrayIndex+1)/10^0.5;
+  if Param.DCTerm == 0
+    for tone_i = [Param.FFTSize/2 - ceil(Param.ToneNum/2)+1 : Param.FFTSize/2 ...
+        Param.FFTSize/2+2 : Param.FFTSize/2+2 + floor(Param.ToneNum/2)-1]  % random sequence mapping to 16QAM
+        GrayIndex = num2str([Frame.Data_Bitstream(:,(symbol_count-1)*Param.ToneNum+data_count)]);
+        GrayIndex = bin2dec(GrayIndex .');
+        switch Mode.Mapping
+          case 'QPSK'
+            SymbolFD(tone_i) = GrayQPSKmap(GrayIndex+1)/10^0.5;
+          case '16QAM'
+            SymbolFD(tone_i) = Gray16QAMmap(GrayIndex+1)/10^0.5;
+        end
+        data_count = data_count + 1;
     end
-    data_count = data_count + 1;
+  else
+    for tone_i = [Param.FFTSize/2 - ceil(Param.ToneNum/2) : Param.FFTSize/2 + floor(Param.ToneNum/2)-1]  % random sequence mapping to 16QAM
+        GrayIndex = num2str([Frame.Data_Bitstream(:,(symbol_count-1)*Param.ToneNum+data_count)]);
+        GrayIndex = bin2dec(GrayIndex .');
+        switch Mode.Mapping
+          case 'QPSK'
+            SymbolFD(tone_i) = GrayQPSKmap(GrayIndex+1)/10^0.5;
+          case '16QAM'
+            SymbolFD(tone_i) = Gray16QAMmap(GrayIndex+1)/10^0.5;
+        end
+        data_count = data_count + 1;
+    end
   end
+  
   %===============test========================
   % Symbol16QAM = zeros(1,Param.FFTSize);
   % Symbol16QAM(2) = 1;
