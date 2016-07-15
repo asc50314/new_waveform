@@ -25,22 +25,22 @@ Param.ToneNum         = 600;
 Param.CarrierSp       = 0.015;
 
 %Symbol oversample
-Param.OverSample      = 1;
+Param.OverSample      = 2;
 if(Param.OverSample > 1)
-  Param.PaulseShapeFunc    = SRRCFlt(Param.OverSample, 0.25, 2);
+  Param.PulseShapeFunc    = SRRCFlt(Param.OverSample, 0.2, 4);
 end
 
 %DAC up-sample
-Param.UpSampleDAC  = 16;
+Param.UpSampleDAC  = 8;
 if(Param.UpSampleDAC > 1)
-  Param.DACInterpoFunc   = SRRCFlt(Param.UpSampleDAC, 0.4, 4);
+  Param.DACInterpoFunc   = SRRCFlt(Param.UpSampleDAC*Param.OverSample, 0.4, 6);
   % Param.DACInterpoFunc   = rcosine(1, Param.UpSampleDAC, 'fir/sqrt', 0.4, 4);
 end
 Param.DCTerm          = 1;  % 0: DC = 0 ; 1: DC != 0
 Param.ClipThreshold   = 15; % [dB], inf for no clipping
 
 %For WOLA
-Param.RollOffRatio    = 0.0781;
+Param.RollOffRatio    = 0.01;
 
 %--------------------------------------------------------------------------
 % Auto Generated Parameters 
@@ -52,114 +52,115 @@ switch Mode.Trans
     Param.CPLength = round(Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.CPratio);
     Param.RollOffPeriod = round((Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.RollOffRatio)/2)*2;
 end
+Param.CPLength      = 144;
+Param.RollOffPeriod = 4;
+
 
 %For PSD plot
 Param.PlotUpSample    = 4;
-Param.PlotRightBand   = 1000;
-Param.PlotLeftBand    = 1000;
+Param.PlotRightBand   = 3000;
+Param.PlotLeftBand    = 3000;
 Param.AxisModel       = 'CF'; % CF(analog freq)/DF(discrete freq)/SC(subcarrier)
 %--------------------------------------------------------------------------
 % Frame Generating
 %--------------------------------------------------------------------------
 % [Param] = param_setting(Mode);
 for case_mode = 1:2
-for clip_mode = 1:3
+  if(case_mode == 1)
+    Param.ToneNum         = 600;
+  else
+    Param.ToneNum         = 660;
+  end
+  for clip_mode = 3:3
     if(case_mode == 1)
-        Mode.Trans = 'OFDM';
+      Mode.Trans = 'OFDM';
     else
-        Mode.Trans = 'WOLA';
-        Param.CPLength = round(Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.CPratio);
-        Param.RollOffPeriod = round((Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.RollOffRatio)/2)*2;
-        
-        switch clip_mode
+      Mode.Trans = 'WOLA';
+      % Param.CPLength = round(Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.CPratio);
+      % Param.RollOffPeriod = round((Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.RollOffRatio)/2)*2;
+      
+      switch clip_mode
         case 1
-            Param.ClipThreshold   = 10;
+          Param.ClipThreshold   = 10;
         case 2
-            Param.ClipThreshold   = 11.65;
+          Param.ClipThreshold   = 11.65;
         case 3
-            Param.ClipThreshold   = inf;
+          Param.ClipThreshold   = inf;
+      end
     end
-    end
-    
 
-     FrameFD = [];
+    FrameFD = [];
     for run_count = 1:Param.run
-        Frame = frame_gen(Mode,Param);
-        if(Param.UpSampleDAC > 1)
-          Frame.Frame_TX = upsample(Frame.Frame_TX.',Param.UpSampleDAC).';
-          Frame.Frame_TX = conv(Frame.Frame_TX,Param.DACInterpoFunc);
-        end
-        
-        %----------------------   power checking      ---------------------------
-        %---------------------   to do the clipping simulation ------------------
-         if case_mode == 2  &&   clip_mode ~= 3
-            FramePower = Frame.Frame_TX.*conj(Frame.Frame_TX);
-            varFrame = mean(FramePower);
-            for i = 1:length(FramePower)
-                if(FramePower(i) > varFrame * (10^(Param.ClipThreshold/10)))
-                    Frame.Frame_TX(i) = Frame.Frame_TX(i)*sqrt((varFrame * (10^(Param.ClipThreshold/10)))/FramePower(i));
-                end
-            end
-        end
-        %-----------------------------------------------------------------------
-        
-        PSD_FFTSize = ceil(length(Frame.Frame_TX)/Param.FFTSize/Param.PlotUpSample/Param.UpSampleDAC)*Param.FFTSize*Param.PlotUpSample*Param.UpSampleDAC;
-        PSD = fftshift(fft(Frame.Frame_TX.',PSD_FFTSize)).';
-        PSD = downsample(PSD,PSD_FFTSize/Param.FFTSize/Param.PlotUpSample/Param.UpSampleDAC);
-        PSD = PSD.*conj(PSD);
-        FrameFD = [FrameFD;PSD];
-    end
+      Frame = frame_gen(Mode,Param);
 
+      if(Param.OverSample > 1)
+        Frame.Frame_TX = upsample(Frame.Frame_TX.',Param.OverSample).';
+        Frame.Frame_TX = conv(Frame.Frame_TX,Param.PulseShapeFunc);
+      end
+
+      if(Param.UpSampleDAC > 1)
+        Frame.Frame_TX = upsample(Frame.Frame_TX.',Param.UpSampleDAC).';
+        Frame.Frame_TX = conv(Frame.Frame_TX,Param.DACInterpoFunc);
+      end
+      
+      %----------------------   power checking      ---------------------------
+      %---------------------   to do the clipping simulation ------------------
+      if case_mode == 2  &&   clip_mode ~= 3
+        FramePower = Frame.Frame_TX.*conj(Frame.Frame_TX);
+        varFrame = mean(FramePower);
+        for i = 1:length(FramePower)
+          if(FramePower(i) > varFrame * (10^(Param.ClipThreshold/10)))
+            Frame.Frame_TX(i) = Frame.Frame_TX(i)*sqrt((varFrame * (10^(Param.ClipThreshold/10)))/FramePower(i));
+          end
+        end
+      end
+      %-----------------------------------------------------------------------
+      
+      PSD_FFTSize = ceil(length(Frame.Frame_TX)/Param.FFTSize/Param.PlotUpSample/Param.UpSampleDAC/Param.OverSample)*Param.FFTSize*Param.PlotUpSample*Param.UpSampleDAC*Param.OverSample;
+      PSD = fftshift(fft(Frame.Frame_TX.',PSD_FFTSize)).';
+      PSD = downsample(PSD,PSD_FFTSize/Param.FFTSize/Param.PlotUpSample/Param.UpSampleDAC/Param.OverSample);
+      PSD = PSD.*conj(PSD);
+      FrameFD = [FrameFD;PSD];
+    end
     %--------------------------------------------------------------------------
     % Frame PSD
     %--------------------------------------------------------------------------
-   
     AvgFrame(case_mode,:) = mean(FrameFD,1);
     clear FrameFD;
-    
-%         if (case_mode == 2)
-%             AvgFrame(case_mode,(find(AvgFrame(case_mode,:)>=10^(Param.ClipThreshold/10)))) = 10^(Param.ClipThreshold/10); % clipping
-%         end
-
-    
-    
     AvgFrame(case_mode,:) = AvgFrame(case_mode,:)./max(AvgFrame(case_mode,:));
     
     switch Param.AxisModel
-        case 'SC'
-            axis = [-(Param.PlotLeftBand+Param.PlotRightBand)/2:1/Param.PlotUpSample:(Param.PlotLeftBand+Param.PlotRightBand)/2];
-        case 'CF'
-            axis = [-(Param.PlotLeftBand+Param.PlotRightBand)*Param.CarrierSp/2:Param.CarrierSp/Param.PlotUpSample:...
-                     (Param.PlotLeftBand+Param.PlotRightBand)*Param.CarrierSp/2];
-        case 'DF'
-    
+      case 'SC'
+        plot_axis = [-(Param.PlotLeftBand+Param.PlotRightBand)/2:1/Param.PlotUpSample:(Param.PlotLeftBand+Param.PlotRightBand)/2];
+      case 'CF'
+        plot_axis = [-(Param.PlotLeftBand+Param.PlotRightBand)*Param.CarrierSp/2:Param.CarrierSp/Param.PlotUpSample:...
+                   (Param.PlotLeftBand+Param.PlotRightBand)*Param.CarrierSp/2];
+      case 'DF'
     end
-
     if(case_mode == 1)
-        plot(axis,10*log10(AvgFrame(1,(length(AvgFrame)/2-Param.PlotLeftBand*Param.PlotUpSample+1)...
-                                     :(length(AvgFrame)/2+Param.PlotRightBand*Param.PlotUpSample+1))),'k');
-        hold on      
-        break
+      plot(plot_axis,10*log10(AvgFrame(1,(length(AvgFrame)/2-Param.PlotLeftBand*Param.PlotUpSample+1)...
+                                   :(length(AvgFrame)/2+Param.PlotRightBand*Param.PlotUpSample+1))),'k');
+      hold on      
+      break
     elseif(case_mode == 2 && clip_mode == 1)
-        plot(axis,10*log10(AvgFrame(2,(length(AvgFrame)/2-Param.PlotLeftBand*Param.PlotUpSample+1)...
+      plot(plot_axis,10*log10(AvgFrame(2,(length(AvgFrame)/2-Param.PlotLeftBand*Param.PlotUpSample+1)...
                                      :(length(AvgFrame)/2+Param.PlotRightBand*Param.PlotUpSample+1))),'r');
     elseif(case_mode == 2 && clip_mode == 2)
-        plot(axis,10*log10(AvgFrame(2,(length(AvgFrame)/2-Param.PlotLeftBand*Param.PlotUpSample+1)...
+      plot(plot_axis,10*log10(AvgFrame(2,(length(AvgFrame)/2-Param.PlotLeftBand*Param.PlotUpSample+1)...
                                      :(length(AvgFrame)/2+Param.PlotRightBand*Param.PlotUpSample+1))),'b');
     elseif(case_mode == 2 && clip_mode == 3)
-        plot(axis,10*log10(AvgFrame(2,(length(AvgFrame)/2-Param.PlotLeftBand*Param.PlotUpSample+1)...
+      plot(plot_axis,10*log10(AvgFrame(2,(length(AvgFrame)/2-Param.PlotLeftBand*Param.PlotUpSample+1)...
                                      :(length(AvgFrame)/2+Param.PlotRightBand*Param.PlotUpSample+1))),'g');                             
     end    
-end
+  end
 end
 
- switch Param.AxisModel
-    case 'SC'
-        xlabel('Normalozed freq [1/T]');    
-    case 'CF'
-        xlabel('freq [MHz]');
-    case 'DF'
-    
+switch Param.AxisModel
+  case 'SC'
+      xlabel('Normalozed freq [1/T]');    
+  case 'CF'
+      xlabel('freq [MHz]');
+  case 'DF'
 end
 ylabel('dB');  
 % legend('CP-OFDM','WOLA');
@@ -167,3 +168,16 @@ legend('CP-OFDM: no clipping','WOLA: clip at 6 dB','WOLA: clip at 8 dB','WOLA: n
 grid on
 hold on
 % axis([-inf inf -120 0]);
+mask_x = [-20:0.1:20]; % MHz
+mask = zeros(1,length(mask_x));
+mask(1:50) = -99;   % 10~15 MHz
+mask(51:90) = -74;  % 6~10 MHz
+mask(91:100) = -61; % 5~6 MHz
+mask(101:122) = -48; % 2.8~5 MHz
+mask(123:125) = -38; % 2.5~2.8 MHz
+mask(126:140) = -28; % 1~2.5 MHz
+mask(141:150) = -18; % 0~1 MHz
+mask(151:200) = 0;   % in band
+mask = [mask(1:200) 0 fliplr(mask(1:200))];
+
+plot(mask_x,mask)
