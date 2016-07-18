@@ -173,7 +173,7 @@ switch Param.AxisModel
 end
 ylabel('dB');  
 % legend('CP-OFDM','WOLA');
-legend('WOLA: clip at 8dB','UFMC: clip at 6 dB','UFMC: clip at 8 dB','UFMC: no clipping');
+legend('CP-OFDM: no clipping','WOLA: clip at 6 dB','WOLA: clip at 8 dB','WOLA: no clipping');
 
 %--------------------------------------------------------------------------
 % Spectrum Mask
