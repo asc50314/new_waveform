@@ -8,12 +8,16 @@ function [Frame]=frame_gen(Mode,Param)
 %-----------------------------
 switch Mode.Trans
   case 'WOLA'
-    %-- Weighting function(Refer "OFDM Versus FBMC" p.95 FILTERING)
+    % Weighting function(Refer "OFDM Versus FBMC" p.95 FILTERING)
     ProtoFl = ones(1,Param.FFTSize+Param.CPLength);
     WeightFunc = sin(pi*(0:Param.RollOffPeriod-1)/Param.RollOffPeriod)/sum(sin(pi*(0:Param.RollOffPeriod-1)/Param.RollOffPeriod));
     WeightFunc = conv(ProtoFl,WeightFunc);
     WeightFunc = WeightFunc(1:Param.RollOffPeriod);
     clear ProtoFl;
+  case 'UFMC'
+    % TX filter
+    TXflt = chebwin(Param.TXfltTap,Param.TXfltSideAttenu).'...
+      .* exp(1i*2*pi*0.5*(0:Param.TXfltTap-1)/1024);    
 end
 
 %-----------------------------
@@ -40,7 +44,9 @@ switch Mode.Trans
   case 'OFDM'
     Frame.Frame_TX = [];
   case 'WOLA'
-    Frame.Frame_TX = zeros(1,Param.RollOffPeriod/2);
+    Frame.Frame_TX = zeros(1,Param.RollOffPeriod);
+  case 'UFMC'
+    Frame.Frame_TX = [];
 end
 
 for symbol_count = 1:Param.SymbolNum
@@ -63,7 +69,7 @@ for symbol_count = 1:Param.SymbolNum
         data_count = data_count + 1;
     end
   else
-    for tone_i = [Param.FFTSize/2 - ceil(Param.ToneNum/2) : Param.FFTSize/2 + floor(Param.ToneNum/2)-1]  % random sequence mapping to 16QAM
+    for tone_i = [Param.FFTSize/2 - ceil(Param.ToneNum/2)+2 : Param.FFTSize/2 + floor(Param.ToneNum/2)+1]  % random sequence mapping to 16QAM
         GrayIndex = num2str([Frame.Data_Bitstream(:,(symbol_count-1)*Param.ToneNum+data_count)]);
         GrayIndex = bin2dec(GrayIndex .');
         switch Mode.Mapping
@@ -75,7 +81,6 @@ for symbol_count = 1:Param.SymbolNum
         data_count = data_count + 1;
     end
   end
-  
   %===============test========================
   % Symbol16QAM = zeros(1,Param.FFTSize);
   % Symbol16QAM(2) = 1;
@@ -83,7 +88,6 @@ for symbol_count = 1:Param.SymbolNum
   %-----------------------------
   % Time-domain Symbol Generating
   %-----------------------------
-  %iFFT
   SymbolTD = ifft(ifftshift(SymbolFD));
   %-----------------------------
   % Adding aid structure for specific transmission
@@ -101,8 +105,11 @@ for symbol_count = 1:Param.SymbolNum
       SymbolTD(1:Param.RollOffPeriod) = SymbolTD(1:Param.RollOffPeriod) .* WeightFunc;
       SymbolTD(end-Param.RollOffPeriod+1:end) = SymbolTD(end-Param.RollOffPeriod+1:end) .* fliplr(WeightFunc);
       %Symbol overlap adding
-      Frame.Frame_TX(end-Param.RollOffPeriod/2+1:end) = Frame.Frame_TX(end-Param.RollOffPeriod/2+1:end) + SymbolTD(1:Param.RollOffPeriod/2);
+      Frame.Frame_TX(end-Param.RollOffPeriod+1:end) = Frame.Frame_TX(end-Param.RollOffPeriod+1:end) + SymbolTD(1:Param.RollOffPeriod);
       %Attach rest of the symbol to Frame_TX
-      Frame.Frame_TX(end+1:end+Param.CPLength+Param.FFTSize+Param.RollOffPeriod/2) = SymbolTD(Param.RollOffPeriod/2+1:end);
+      Frame.Frame_TX(end+1:end+Param.CPLength+Param.FFTSize) = SymbolTD(Param.RollOffPeriod+1:end);
+    case 'UFMC'
+      SymbolTD = conv(SymbolTD,TXflt);
+      Frame.Frame_TX(end+1:end+length(SymbolTD)) = SymbolTD;
   end
 end
