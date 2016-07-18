@@ -18,10 +18,10 @@ Mode.Mapping  = 'QPSK'; % QPSK/16QAM
 %-----------------------------
 Param.run             = 100;
 Param.sample_rate     = 1200;
-Param.SymbolNum       = 60;
+Param.SymbolNum       = 1;
 Param.FFTSize         = 1024;
 Param.CPratio         = 0.1;
-Param.ToneNum         = 12;
+Param.ToneNum         = 24;
 Param.CarrierSp       = 0.015;
 
 %For WOLA
@@ -29,6 +29,7 @@ Param.RollOffRatio    = 0.0781;
 
 %For UFMC
 Param.RBsize          = 12;
+Param.RBnum           = 2;
 Param.TXfltTap        = 102;
 Param.TXfltSideAttenu = 60; %(dB)
 
@@ -65,8 +66,9 @@ switch Mode.Trans
     Param.CPLength = round(Param.FFTSize*Param.CPratio);
     % Param.RollOffPeriod = round((Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.RollOffRatio)/2)*2;
     Param.RollOffPeriod = round((Param.FFTSize*Param.RollOffRatio)/2)*2;
+  case 'UFMC'
+    Param.ToneNum = Param.RBsize*Param.RBnum;
 end
-
 %--------------------------------------------------------------------------
 % Frame Generating
 %--------------------------------------------------------------------------
@@ -75,7 +77,7 @@ for case_mode = 1:2
   if(case_mode == 1)
     Param.ToneNum         = 12;
   else
-    Param.ToneNum         = 12;
+    Param.ToneNum         = Param.RBsize*Param.RBnum;
   end
   for clip_mode = 1:3
     if(case_mode == 1)
@@ -98,7 +100,12 @@ for case_mode = 1:2
 
     FrameFD = [];
     for run_count = 1:Param.run
-      Frame(case_mode) = frame_gen(Mode,Param);
+      switch Mode.Trans
+        case 'UFMC'
+          Frame(case_mode) = frame_gen_UFMC(Mode,Param);
+        otherwise
+          Frame(case_mode) = frame_gen(Mode,Param);
+      end
 
       if(Param.OverSample > 1)
         Frame(case_mode).Frame_TX = upsample(Frame(case_mode).Frame_TX.',Param.OverSample).';

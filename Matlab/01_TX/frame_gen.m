@@ -14,10 +14,6 @@ switch Mode.Trans
     WeightFunc = conv(ProtoFl,WeightFunc);
     WeightFunc = WeightFunc(1:Param.RollOffPeriod);
     clear ProtoFl;
-  case 'UFMC'
-    % TX filter
-    TXflt = chebwin(Param.TXfltTap,Param.TXfltSideAttenu).'...
-      .* exp(1i*2*pi*0.5*(0:Param.TXfltTap-1)/1024);    
 end
 
 %-----------------------------
@@ -45,8 +41,6 @@ switch Mode.Trans
     Frame.Frame_TX = [];
   case 'WOLA'
     Frame.Frame_TX = zeros(1,Param.RollOffPeriod);
-  case 'UFMC'
-    Frame.Frame_TX = [];
 end
 
 for symbol_count = 1:Param.SymbolNum
@@ -108,8 +102,5 @@ for symbol_count = 1:Param.SymbolNum
       Frame.Frame_TX(end-Param.RollOffPeriod+1:end) = Frame.Frame_TX(end-Param.RollOffPeriod+1:end) + SymbolTD(1:Param.RollOffPeriod);
       %Attach rest of the symbol to Frame_TX
       Frame.Frame_TX(end+1:end+Param.CPLength+Param.FFTSize) = SymbolTD(Param.RollOffPeriod+1:end);
-    case 'UFMC'
-      SymbolTD = conv(SymbolTD,TXflt);
-      Frame.Frame_TX(end+1:end+length(SymbolTD)) = SymbolTD;
   end
 end
