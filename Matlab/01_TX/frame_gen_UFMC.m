@@ -32,13 +32,15 @@ Frame.Frame_TX = [];
 for symbol_count = 1:Param.SymbolNum
   %-----------------------------
   % Constellation Mapping
+  % RBs of Left Part
   %-----------------------------
   data_count = 1;
   RB_count = 1;
   for RB = [-ceil(Param.RBnum/2):-1]
     SymbolFD = zeros(1,Param.FFTSize);
+    % Random sequence mapping to 16QAM for each tone in 1 RB
     for tone_i = [Param.FFTSize/2+1+(RB+1)*Param.RBsize-Param.RBsize : ...
-                  Param.FFTSize/2+1+(RB+1)*Param.RBsize-1]  % random sequence mapping to 16QAM
+                  Param.FFTSize/2+1+(RB+1)*Param.RBsize-1]
       GrayIndex = num2str([Frame.Data_Bitstream(:,(symbol_count-1)*Param.ToneNum+data_count)]);
       GrayIndex = bin2dec(GrayIndex .');
       switch Mode.Mapping
@@ -50,17 +52,23 @@ for symbol_count = 1:Param.SymbolNum
       data_count = data_count + 1;
     end
     %-----------------------------
-    % Time-domain Symbol Generating
+    % Time-domain Symbol Generating for 1 RB
     %-----------------------------
     SymbolTDtemp(RB_count,:) = ifft(ifftshift(SymbolFD(RB_count,:)));
+    % Pass modulated TX filter
     SymbolTD(RB_count,:) = conv(SymbolTDtemp(RB_count,:), ...
       TXflt.*exp(1i*2*pi*mean([tone_i-Param.FFTSize/2-1 tone_i-Param.FFTSize/2-1-Param.RBsize+1])*(0:Param.TXfltTap-1)/Param.FFTSize));
     RB_count = RB_count + 1;
   end
+  %-----------------------------
+  % Constellation Mapping
+  % RBs of Right Part
+  %-----------------------------
   for RB = [1:floor(Param.RBnum/2)]
     SymbolFD = zeros(1,Param.FFTSize);
+    % Random sequence mapping to 16QAM for each tone in 1 RB
     for tone_i = [Param.FFTSize/2+1+(RB-1)*Param.RBsize+1 : ...
-                  Param.FFTSize/2+1+(RB-1)*Param.RBsize+Param.RBsize]  % random sequence mapping to 16QAM
+                  Param.FFTSize/2+1+(RB-1)*Param.RBsize+Param.RBsize]
       GrayIndex = num2str([Frame.Data_Bitstream(:,(symbol_count-1)*Param.ToneNum+data_count)]);
       GrayIndex = bin2dec(GrayIndex .');
       switch Mode.Mapping
@@ -72,13 +80,16 @@ for symbol_count = 1:Param.SymbolNum
       data_count = data_count + 1;
     end
     %-----------------------------
-    % Time-domain Symbol Generating
+    % Time-domain Symbol Generating for 1 RB
     %-----------------------------
     SymbolTDtemp(RB_count,:) = ifft(ifftshift(SymbolFD(RB_count,:)));
+    % Pass modulated TX filter
     SymbolTD(RB_count,:) = conv(SymbolTDtemp(RB_count,:), ...
       TXflt.*exp(1i*2*pi*mean([tone_i-Param.FFTSize/2-1 tone_i-Param.FFTSize/2-1-Param.RBsize+1])*(0:Param.TXfltTap-1)/Param.FFTSize));
     RB_count = RB_count + 1;
   end
+  % Sum all the SymbolTD from all the RBs
   SymbolTD = sum(SymbolTD,1);
+  % Attach current symbol to Frame
   Frame.Frame_TX(end+1:end+length(SymbolTD)) = SymbolTD;
 end
