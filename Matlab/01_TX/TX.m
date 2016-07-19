@@ -16,9 +16,9 @@ Mode.Mapping  = 'QPSK'; % QPSK/16QAM
 %-----------------------------
 % Parameters Setting
 %-----------------------------
-Param.run             = 20;
+Param.run             = 100;
 Param.sample_rate     = 1200;
-Param.SymbolNum       = 1;
+Param.SymbolNum       = 5;
 Param.FFTSize         = 1024;
 Param.CPratio         = 0.1;
 Param.ToneNum         = 600;
@@ -49,10 +49,10 @@ Param.ClipThreshold   = inf; % [dB], inf for no clipping
 
 %For PSD plot
 Param.PlotUpSample    = 4;
-Param.PlotRightBand   = 1800;
-Param.PlotLeftBand    = 1800;
+Param.PlotRightBand   = 1500;
+Param.PlotLeftBand    = 1500;
 Param.AxisModel       = 'CF'; % CF(analog freq)/DF(discrete freq)/SC(subcarrier)
-Param.SpectrumMask    = 0; % 0:no spectrum mask ; 1: with spectrum mask
+Param.SpectrumMask    = 1; % 0:no spectrum mask ; 1: with spectrum mask
 
 %--------------------------------------------------------------------------
 % Auto Generated Parameters 
@@ -169,7 +169,7 @@ for case_mode = 1:2
   end
 end
 
-axis([-inf inf -100 0]);
+axis([-20 20 -100 0]);
 grid on
 switch Param.AxisModel
   case 'SC'
@@ -187,16 +187,17 @@ legend('WOLA: clip at 8dB','UFMC: clip at 6 dB','UFMC: clip at 8 dB','UFMC: no c
 %--------------------------------------------------------------------------
 if(Param.SpectrumMask == 1)
   hold on
-  mask_x = [-20:0.1:20]; % MHz
+  mask_x = [-20 -15 -15 -11 -11 -10 -10 -7.8 -7.8 -7.5 -7.5 -6 -6 -5 -5]; % MHz
   mask = zeros(1,length(mask_x));
-  mask(1:50) = -99;   % 10~15 MHz
-  mask(51:90) = -74;  % 6~10 MHz
-  mask(91:100) = -61; % 5~6 MHz
-  mask(101:122) = -48; % 2.8~5 MHz
-  mask(123:125) = -38; % 2.5~2.8 MHz
-  mask(126:140) = -28; % 1~2.5 MHz
-  mask(141:150) = -18; % 0~1 MHz
-  mask(151:200) = 0;   % in band
-  mask = [mask(1:200) 0 fliplr(mask(1:200))];
+  mask(1:2) = -99;   % 10~15 MHz
+  mask(3:4) = -74;  % 6~10 MHz
+  mask(5:6) = -61; % 5~6 MHz
+  mask(7:8) = -48; % 2.8~5 MHz
+  mask(9:10) = -38; % 2.5~2.8 MHz
+  mask(11:12) = -28; % 1~2.5 MHz
+  mask(13:14) = -18; % 0~1 MHz
+  mask(15) = 0;   % in band
+  mask = [mask fliplr(mask)];
+  mask_x = [mask_x -fliplr(mask_x)];
   plot(mask_x,mask)
 end
