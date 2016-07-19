@@ -16,12 +16,12 @@ Mode.Mapping  = 'QPSK'; % QPSK/16QAM
 %-----------------------------
 % Parameters Setting
 %-----------------------------
-Param.run             = 100;
+Param.run             = 20;
 Param.sample_rate     = 1200;
 Param.SymbolNum       = 1;
 Param.FFTSize         = 1024;
 Param.CPratio         = 0.1;
-Param.ToneNum         = 24;
+Param.ToneNum         = 600;
 Param.CarrierSp       = 0.015;
 
 %For WOLA
@@ -29,29 +29,29 @@ Param.RollOffRatio    = 0.0781;
 
 %For UFMC
 Param.RBsize          = 12;
-Param.RBnum           = 2;
+Param.RBnum           = 50;
 Param.TXfltTap        = 102;
 Param.TXfltSideAttenu = 60; %(dB)
 
 %Symbol oversample
-Param.OverSample      = 1;
+Param.OverSample      = 2;
 if(Param.OverSample > 1)
   Param.PulseShapeFunc    = SRRCFlt(Param.OverSample, 0.2, 4);
 end
 
 %DAC up-sample
-Param.UpSampleDAC  = 1;
+Param.UpSampleDAC  = 8;
 if(Param.UpSampleDAC > 1)
   Param.DACInterpoFunc   = SRRCFlt(Param.UpSampleDAC*Param.OverSample, 0.4, 6);
 end
-Param.DCTerm          = 1;  % 0: DC = 0 ; 1: DC != 0
+Param.DCTerm          = 0;  % 0: DC = 0 ; 1: DC != 0
 Param.ClipThreshold   = inf; % [dB], inf for no clipping
 
 %For PSD plot
 Param.PlotUpSample    = 4;
-Param.PlotRightBand   = 60;
-Param.PlotLeftBand    = 60;
-Param.AxisModel       = 'SC'; % CF(analog freq)/DF(discrete freq)/SC(subcarrier)
+Param.PlotRightBand   = 1800;
+Param.PlotLeftBand    = 1800;
+Param.AxisModel       = 'CF'; % CF(analog freq)/DF(discrete freq)/SC(subcarrier)
 Param.SpectrumMask    = 0; % 0:no spectrum mask ; 1: with spectrum mask
 
 %--------------------------------------------------------------------------
@@ -75,14 +75,14 @@ end
 % [Param] = param_setting(Mode);
 for case_mode = 1:2
   if(case_mode == 1)
-    Param.ToneNum         = 12;
+    Param.ToneNum         = 600;
   else
     Param.ToneNum         = Param.RBsize*Param.RBnum;
   end
   for clip_mode = 1:3
     if(case_mode == 1)
       Mode.Trans = 'WOLA';
-      Param.ClipThreshold   = 8;
+      Param.ClipThreshold   = inf;
     else
       Mode.Trans = 'UFMC';
       % Param.CPLength = round(Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.CPratio);
