@@ -16,9 +16,9 @@ Mode.Mapping  = 'QPSK'; % QPSK/16QAM
 %-----------------------------
 % Parameters Setting
 %-----------------------------
-Param.run             = 100;
+Param.run             = 40;
 Param.sample_rate     = 1200;
-Param.SymbolNum       = 5;
+Param.SymbolNum       = 1;
 Param.FFTSize         = 1024;
 Param.CPratio         = 0.1;
 Param.ToneNum         = 600;
@@ -29,7 +29,7 @@ Param.RollOffRatio    = 0.0781;
 
 %For UFMC
 Param.RBsize          = 12;
-Param.RBnum           = 50;
+Param.RBnum           = 54;
 Param.TXfltTap        = 102;
 Param.TXfltSideAttenu = 60; %(dB)
 
@@ -40,9 +40,9 @@ if(Param.OverSample > 1)
 end
 
 %DAC up-sample
-Param.UpSampleDAC  = 8;
+Param.UpSampleDAC  = 4;
 if(Param.UpSampleDAC > 1)
-  Param.DACInterpoFunc   = SRRCFlt(Param.UpSampleDAC*Param.OverSample, 0.4, 6);
+  Param.DACInterpoFunc   = SRRCFlt(Param.UpSampleDAC*Param.OverSample, 0.3, 6);
 end
 Param.DCTerm          = 0;  % 0: DC = 0 ; 1: DC != 0
 Param.ClipThreshold   = inf; % [dB], inf for no clipping
@@ -75,14 +75,14 @@ end
 % [Param] = param_setting(Mode);
 for case_mode = 1:2
   if(case_mode == 1)
-    Param.ToneNum         = 600;
+    Param.ToneNum         = 648;
   else
     Param.ToneNum         = Param.RBsize*Param.RBnum;
   end
   for clip_mode = 1:3
     if(case_mode == 1)
       Mode.Trans = 'WOLA';
-      Param.ClipThreshold   = inf;
+      Param.ClipThreshold   = 8;
     else
       Mode.Trans = 'UFMC';
       % Param.CPLength = round(Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.CPratio);
