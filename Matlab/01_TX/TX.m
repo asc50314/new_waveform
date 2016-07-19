@@ -16,7 +16,7 @@ Mode.Mapping  = 'QPSK'; % QPSK/16QAM
 %-----------------------------
 % Parameters Setting
 %-----------------------------
-Param.run             = 100;
+Param.run             = 20;
 Param.sample_rate     = 1200;
 Param.SymbolNum       = 5;
 Param.FFTSize         = 1024;
@@ -41,7 +41,7 @@ end
 %DAC up-sample
 Param.UpSampleDAC  = 4;
 if(Param.UpSampleDAC > 1)
-  Param.DACInterpoFunc   = SRRCFlt(Param.UpSampleDAC*Param.OverSample, 0.4, 6);
+  Param.DACInterpoFunc   = SRRCFlt(Param.UpSampleDAC*Param.OverSample, 0.3, 6);
 end
 Param.DCTerm          = 0;  % 0: DC = 0 ; 1: DC != 0
 Param.ClipThreshold   = inf; % [dB], inf for no clipping
@@ -66,7 +66,6 @@ switch Mode.Trans
     % Param.RollOffPeriod = round((Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.RollOffRatio)/2)*2;
     Param.RollOffPeriod = round((Param.FFTSize*Param.RollOffRatio)/2)*2;
 end
-
 %--------------------------------------------------------------------------
 % Frame Generating
 %--------------------------------------------------------------------------
