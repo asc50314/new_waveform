@@ -87,7 +87,7 @@ for symbol_count = 1:Param.SymbolNum
       SymbolTD = ifft(ifftshift([ zeros(1,Param.OverSample*Param.FFTSize/2-Param.FFTSize/2) ...
                                   SymbolFD ...
                                   zeros(1,Param.OverSample*Param.FFTSize/2-Param.FFTSize/2)]));
-    case 'SRRC'
+    case {'SRRC', 'RC'}
       SymbolTD = ifft(ifftshift(SymbolFD));
       if(Param.OverSample > 1)
         SymbolTD = upsample(SymbolTD.',Param.OverSample).';

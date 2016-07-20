@@ -16,7 +16,7 @@ Mode.Mapping  = 'QPSK'; % QPSK/16QAM
 %-----------------------------
 % Parameters Setting
 %-----------------------------
-Param.run             = 20;
+Param.run             = 10;
 Param.sample_rate     = 1200;
 Param.SymbolNum       = 5;
 Param.FFTSize         = 1024;
@@ -33,10 +33,16 @@ Param.TXfltTap        = 102;
 Param.TXfltSideAttenu = 60; %(dB)
 
 %Symbol oversample
-Param.OverSampleType  = 'FFT';  % FFT/SRRC
+Param.OverSampleType  = 'SRRC';  % FFT/SRRC/RC
 Param.OverSample      = 4;
 if(Param.OverSample > 1)
-  Param.PulseShapeFunc    = SRRCFlt(Param.OverSample, 0.4, 4);
+  switch Param.OverSampleType
+    case 'SRRC'
+      Param.PulseShapeFunc = SRRCFlt(Param.OverSample, 0.1, 4);
+    case 'RC'
+      Param.PulseShapeFunc = rcosine(1,Param.OverSample,'fir', 0.1, 4);
+  end
+
 end
 
 %DAC up-sample
