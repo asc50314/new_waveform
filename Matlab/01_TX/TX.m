@@ -16,7 +16,7 @@ Mode.Mapping  = 'QPSK'; % QPSK/16QAM
 %-----------------------------
 % Parameters Setting
 %-----------------------------
-Param.run             = 40;
+Param.run             = 10;
 Param.sample_rate     = 1200;
 Param.SymbolNum       = 1;
 Param.FFTSize         = 1024;
@@ -34,13 +34,19 @@ Param.TXfltTap        = 102;
 Param.TXfltSideAttenu = 60; %(dB)
 
 %Symbol oversample
-Param.OverSample      = 2;
+Param.OverSampleType  = 'FFT';  % FFT/SRRC/RC
+Param.OverSample      = 4;
 if(Param.OverSample > 1)
-  Param.PulseShapeFunc    = SRRCFlt(Param.OverSample, 0.2, 4);
+  switch Param.OverSampleType
+    case 'SRRC'
+      Param.PulseShapeFunc = SRRCFlt(Param.OverSample, 0.1, 4);
+    case 'RC'
+      Param.PulseShapeFunc = rcosine(1,Param.OverSample,'fir', 0.1, 4);
+  end
 end
 
 %DAC up-sample
-Param.UpSampleDAC  = 4;
+Param.UpSampleDAC  = 1;
 if(Param.UpSampleDAC > 1)
   Param.DACInterpoFunc   = SRRCFlt(Param.UpSampleDAC*Param.OverSample, 0.3, 6);
 end
@@ -105,11 +111,6 @@ for case_mode = 1:2
           Frame(case_mode) = frame_gen_UFMC(Mode,Param);
         otherwise
           Frame(case_mode) = frame_gen(Mode,Param);
-      end
-
-      if(Param.OverSample > 1)
-        Frame(case_mode).Frame_TX = upsample(Frame(case_mode).Frame_TX.',Param.OverSample).';
-        Frame(case_mode).Frame_TX = conv(Frame(case_mode).Frame_TX,Param.PulseShapeFunc);
       end
 
       if(Param.UpSampleDAC > 1)
