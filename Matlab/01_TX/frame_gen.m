@@ -9,15 +9,11 @@ function [Frame]=frame_gen(Mode,Param)
 switch Mode.Trans
   case 'WOLA'
     % Weighting function(Refer "OFDM Versus FBMC" p.95 FILTERING)
-    ProtoFl = ones(1,Param.FFTSize+Param.CPLength);
-    WeightFunc = sin(pi*(0:Param.RollOffPeriod-1)/Param.RollOffPeriod)/sum(sin(pi*(0:Param.RollOffPeriod-1)/Param.RollOffPeriod));
+    ProtoFl = ones(1,(Param.FFTSize+Param.CPLength)*Param.OverSample);
+    WeightFunc = sin(pi*(0:Param.RollOffPeriod*Param.OverSample-1)/(Param.RollOffPeriod*Param.OverSample))/sum(sin(pi*(0:Param.RollOffPeriod*Param.OverSample-1)/(Param.RollOffPeriod*Param.OverSample)));
     WeightFunc = conv(ProtoFl,WeightFunc);
-    WeightFunc = WeightFunc(1:Param.RollOffPeriod);
-    clear ProtoFl;
-  case 'UFMC'
-    % TX filter
-    TXflt = chebwin(Param.TXfltTap,Param.TXfltSideAttenu).'...
-      .* exp(1i*2*pi*0.5*(0:Param.TXfltTap-1)/1024);    
+    WeightFunc = WeightFunc(1:Param.RollOffPeriod*Param.OverSample);
+    clear ProtoFl; 
 end
 
 %-----------------------------
@@ -44,9 +40,7 @@ switch Mode.Trans
   case 'OFDM'
     Frame.Frame_TX = [];
   case 'WOLA'
-    Frame.Frame_TX = zeros(1,Param.RollOffPeriod);
-  case 'UFMC'
-    Frame.Frame_TX = [];
+    Frame.Frame_TX = zeros(1,Param.RollOffPeriod*Param.OverSample);
 end
 
 for symbol_count = 1:Param.SymbolNum
@@ -88,28 +82,38 @@ for symbol_count = 1:Param.SymbolNum
   %-----------------------------
   % Time-domain Symbol Generating
   %-----------------------------
-  SymbolTD = ifft(ifftshift(SymbolFD));
+  switch Param.OverSampleType
+    case 'FFT'
+      SymbolTD = ifft(ifftshift([ zeros(1,Param.OverSample*Param.FFTSize/2-Param.FFTSize/2) ...
+                                  SymbolFD ...
+                                  zeros(1,Param.OverSample*Param.FFTSize/2-Param.FFTSize/2)]));
+    case 'SRRC'
+      SymbolTD = ifft(ifftshift(SymbolFD));
+      if(Param.OverSample > 1)
+        SymbolTD = upsample(SymbolTD.',Param.OverSample).';
+        SymbolTD = cconv(SymbolTD,Param.PulseShapeFunc,Param.FFTSize*Param.OverSample);
+        SymbolTD = circshift(SymbolTD,[1,-Param.OverSample*4]);
+      end
+  end
+  
   %-----------------------------
   % Adding aid structure for specific transmission
   %-----------------------------
   switch Mode.Trans
     case 'OFDM'
       % Add CP to current symbol
-      SymbolTD = [SymbolTD(end-Param.CPLength+1:end) SymbolTD];
+      SymbolTD = [SymbolTD(end-Param.CPLength*Param.OverSample+1:end) SymbolTD];
       % Attach current symbol to Frame_TX
       Frame.Frame_TX(end+1:end+length(SymbolTD)) = SymbolTD;
     case 'WOLA' %(Refer "OFDM Versus FBMC" p.95 FILTERING)
       %Add CPrefix and CPostfix to current symbol
-      SymbolTD = [SymbolTD(end-Param.CPLength-Param.RollOffPeriod/2+1:end) SymbolTD SymbolTD(1:Param.RollOffPeriod/2)];
+      SymbolTD = [SymbolTD(end-Param.CPLength*Param.OverSample-Param.RollOffPeriod*Param.OverSample/2+1:end) SymbolTD SymbolTD(1:Param.RollOffPeriod*Param.OverSample/2)];
       %CP weighting
-      SymbolTD(1:Param.RollOffPeriod) = SymbolTD(1:Param.RollOffPeriod) .* WeightFunc;
-      SymbolTD(end-Param.RollOffPeriod+1:end) = SymbolTD(end-Param.RollOffPeriod+1:end) .* fliplr(WeightFunc);
+      SymbolTD(1:Param.RollOffPeriod*Param.OverSample) = SymbolTD(1:Param.RollOffPeriod*Param.OverSample) .* WeightFunc;
+      SymbolTD(end-Param.RollOffPeriod*Param.OverSample+1:end) = SymbolTD(end-Param.RollOffPeriod*Param.OverSample+1:end) .* fliplr(WeightFunc);
       %Symbol overlap adding
-      Frame.Frame_TX(end-Param.RollOffPeriod+1:end) = Frame.Frame_TX(end-Param.RollOffPeriod+1:end) + SymbolTD(1:Param.RollOffPeriod);
+      Frame.Frame_TX(end-Param.RollOffPeriod*Param.OverSample+1:end) = Frame.Frame_TX(end-Param.RollOffPeriod*Param.OverSample+1:end) + SymbolTD(1:Param.RollOffPeriod*Param.OverSample);
       %Attach rest of the symbol to Frame_TX
-      Frame.Frame_TX(end+1:end+Param.CPLength+Param.FFTSize) = SymbolTD(Param.RollOffPeriod+1:end);
-    case 'UFMC'
-      SymbolTD = conv(SymbolTD,TXflt);
-      Frame.Frame_TX(end+1:end+length(SymbolTD)) = SymbolTD;
+      Frame.Frame_TX(end+1:end+Param.CPLength*Param.OverSample+Param.FFTSize*Param.OverSample) = SymbolTD(Param.RollOffPeriod*Param.OverSample+1:end);
   end
 end

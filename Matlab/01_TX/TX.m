@@ -33,13 +33,14 @@ Param.TXfltTap        = 102;
 Param.TXfltSideAttenu = 60; %(dB)
 
 %Symbol oversample
-Param.OverSample      = 2;
+Param.OverSampleType  = 'FFT';  % FFT/SRRC
+Param.OverSample      = 4;
 if(Param.OverSample > 1)
-  Param.PulseShapeFunc    = SRRCFlt(Param.OverSample, 0.2, 4);
+  Param.PulseShapeFunc    = SRRCFlt(Param.OverSample, 0.4, 4);
 end
 
 %DAC up-sample
-Param.UpSampleDAC  = 4;
+Param.UpSampleDAC  = 1;
 if(Param.UpSampleDAC > 1)
   Param.DACInterpoFunc   = SRRCFlt(Param.UpSampleDAC*Param.OverSample, 0.3, 6);
 end
@@ -48,8 +49,8 @@ Param.ClipThreshold   = inf; % [dB], inf for no clipping
 
 %For PSD plot
 Param.PlotUpSample    = 4;
-Param.PlotRightBand   = 1500;
-Param.PlotLeftBand    = 1500;
+Param.PlotRightBand   = 2047;
+Param.PlotLeftBand    = 2048;
 Param.AxisModel       = 'CF'; % CF(analog freq)/DF(discrete freq)/SC(subcarrier)
 Param.SpectrumMask    = 1; % 0:no spectrum mask ; 1: with spectrum mask
 
@@ -81,10 +82,7 @@ for case_mode = 1:2
       Mode.Trans = 'OFDM';
       Param.ClipThreshold   = inf;
     else
-      Mode.Trans = 'WOLA';
-      % Param.CPLength = round(Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.CPratio);
-      % Param.RollOffPeriod = round((Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.RollOffRatio)/2)*2;
-      
+      Mode.Trans = 'WOLA';      
       switch clip_mode
         case 1
           Param.ClipThreshold   = 6;
@@ -98,11 +96,6 @@ for case_mode = 1:2
     FrameFD = [];
     for run_count = 1:Param.run
       Frame = frame_gen(Mode,Param);
-
-      if(Param.OverSample > 1)
-        Frame.Frame_TX = upsample(Frame.Frame_TX.',Param.OverSample).';
-        Frame.Frame_TX = conv(Frame.Frame_TX,Param.PulseShapeFunc);
-      end
 
       if(Param.UpSampleDAC > 1)
         Frame.Frame_TX = upsample(Frame.Frame_TX.',Param.UpSampleDAC).';
@@ -161,7 +154,7 @@ for case_mode = 1:2
   end
 end
 
-axis([-20 20 -100 0]);
+% axis([-inf inf -100 0]);
 grid on
 switch Param.AxisModel
   case 'SC'
