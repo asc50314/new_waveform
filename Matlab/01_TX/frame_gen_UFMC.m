@@ -6,7 +6,8 @@ function [Frame]=frame_gen_UFMC(Mode,Param)
 %-----------------------------
 % UFMC TX Filter
 %-----------------------------
-TXflt = chebwin(Param.TXfltTap,Param.TXfltSideAttenu).';    
+% TXflt = chebwin(Param.TXfltTap,Param.TXfltSideAttenu).';
+TXflt = fir1(Param.TXfltTap*Param.OverSample-1,(Param.RBsize/2)/(512*Param.OverSample),chebwin(Param.TXfltTap*Param.OverSample,Param.TXfltSideAttenu));
 
 %-----------------------------
 % Original Data Bit Stream Generating
@@ -54,10 +55,24 @@ for symbol_count = 1:Param.SymbolNum
     %-----------------------------
     % Time-domain Symbol Generating for 1 RB
     %-----------------------------
-    SymbolTDtemp(RB_count,:) = ifft(ifftshift(SymbolFD(RB_count,:)));
+    switch Param.OverSampleType
+      case 'FFT'
+        % dbstop 61
+        SymbolTDtemp = ifft(ifftshift([ zeros(1,Param.OverSample*Param.FFTSize/2-Param.FFTSize/2) ...
+                                    SymbolFD(RB_count,:) ...
+                                    zeros(1,Param.OverSample*Param.FFTSize/2-Param.FFTSize/2)]));
+      case {'SRRC', 'RC'}
+        SymbolTDtemp = ifft(ifftshift(SymbolFD(RB_count,:)));
+        if(Param.OverSample > 1)
+          SymbolTDtemp = upsample(SymbolTDtemp.',Param.OverSample).';
+          SymbolTDtemp = cconv(SymbolTDtemp,Param.PulseShapeFunc,Param.FFTSize*Param.OverSample);
+          SymbolTDtemp = circshift(SymbolTDtemp,[1,-Param.OverSample*4]);
+        end
+    end
+    % SymbolTDtemp = ifft(ifftshift(SymbolFD(RB_count,:)));
     % Pass modulated TX filter
-    SymbolTD(RB_count,:) = conv(SymbolTDtemp(RB_count,:), ...
-      TXflt.*exp(1i*2*pi*mean([tone_i-Param.FFTSize/2-1 tone_i-Param.FFTSize/2-1-Param.RBsize+1])*(0:Param.TXfltTap-1)/Param.FFTSize));
+    SymbolTD(RB_count,:) = conv(SymbolTDtemp, ...
+      TXflt.*exp(1i*2*pi*mean([tone_i-Param.FFTSize/2-1 tone_i-Param.FFTSize/2-1-Param.RBsize+1])*(0:Param.TXfltTap*Param.OverSample-1)/(Param.FFTSize*Param.OverSample)));
     RB_count = RB_count + 1;
   end
   %-----------------------------
@@ -82,10 +97,23 @@ for symbol_count = 1:Param.SymbolNum
     %-----------------------------
     % Time-domain Symbol Generating for 1 RB
     %-----------------------------
-    SymbolTDtemp(RB_count,:) = ifft(ifftshift(SymbolFD(RB_count,:)));
+    switch Param.OverSampleType
+      case 'FFT'
+        SymbolTDtemp = ifft(ifftshift([ zeros(1,Param.OverSample*Param.FFTSize/2-Param.FFTSize/2) ...
+                                    SymbolFD(RB_count,:) ...
+                                    zeros(1,Param.OverSample*Param.FFTSize/2-Param.FFTSize/2)]));
+      case {'SRRC', 'RC'}
+        SymbolTDtemp = ifft(ifftshift(SymbolFD(RB_count,:)));
+        if(Param.OverSample > 1)
+          SymbolTDtemp = upsample(SymbolTDtemp.',Param.OverSample).';
+          SymbolTDtemp = cconv(SymbolTDtemp,Param.PulseShapeFunc,Param.FFTSize*Param.OverSample);
+          SymbolTDtemp = circshift(SymbolTDtemp,[1,-Param.OverSample*4]);
+        end
+    end
+    % SymbolTDtemp = ifft(ifftshift(SymbolFD(RB_count,:)));
     % Pass modulated TX filter
-    SymbolTD(RB_count,:) = conv(SymbolTDtemp(RB_count,:), ...
-      TXflt.*exp(1i*2*pi*mean([tone_i-Param.FFTSize/2-1 tone_i-Param.FFTSize/2-1-Param.RBsize+1])*(0:Param.TXfltTap-1)/Param.FFTSize));
+    SymbolTD(RB_count,:) = conv(SymbolTDtemp, ...
+      TXflt.*exp(1i*2*pi*mean([tone_i-Param.FFTSize/2-1 tone_i-Param.FFTSize/2-1-Param.RBsize+1])*(0:Param.TXfltTap*Param.OverSample-1)/(Param.FFTSize*Param.OverSample)));
     RB_count = RB_count + 1;
   end
   % Sum all the SymbolTD from all the RBs

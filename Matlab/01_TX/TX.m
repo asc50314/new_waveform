@@ -55,10 +55,10 @@ Param.ClipThreshold   = inf; % [dB], inf for no clipping
 
 %For PSD plot
 Param.PlotUpSample    = 4;
-Param.PlotRightBand   = 1500;
-Param.PlotLeftBand    = 1500;
+Param.PlotRightBand   = 2047;
+Param.PlotLeftBand    = 2048;
 Param.AxisModel       = 'CF'; % CF(analog freq)/DF(discrete freq)/SC(subcarrier)
-Param.SpectrumMask    = 1; % 0:no spectrum mask ; 1: with spectrum mask
+Param.SpectrumMask    = 0; % 0:no spectrum mask ; 1: with spectrum mask
 
 %--------------------------------------------------------------------------
 % Auto Generated Parameters 
@@ -171,6 +171,7 @@ for case_mode = 1:2
 end
 
 axis([-20 20 -100 0]);
+% axis([-inf inf -100 0]);
 grid on
 switch Param.AxisModel
   case 'SC'
