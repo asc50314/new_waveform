@@ -8,7 +8,7 @@ clear all; close all; clc;
 %--------------------------------------------------------------------------
 % Mode Parameters
 %--------------------------------------------------------------------------
-Mode.Trans    = 'WOLA'; % OFDM/WOLA/FBMC/UFMC
+Mode.Trans    = 'SC'; % OFDM/WOLA/FBMC/UFMC/SC/SC-WOLA
 Mode.Mapping  = 'QPSK'; % QPSK/16QAM
 %--------------------------------------------------------------------------
 % Execution Parameters
@@ -17,15 +17,15 @@ Mode.Mapping  = 'QPSK'; % QPSK/16QAM
 % Parameters Setting
 %-----------------------------
 Param.run             = 10;
-Param.sample_rate     = 1200;
-Param.SymbolNum       = 5;
-Param.FFTSize         = 1024;
-Param.CPratio         = 0.1;
+Param.SapmleRate      = 15.36;
+Param.SymbolNum       = 2;
+Param.FFTSize         = 128;
+Param.CPratio         = 0;
 Param.ToneNum         = 600;
-Param.CarrierSp       = 0.015;
+Param.CarrierSp       = Param.SapmleRate/Param.FFTSize;
 
 %For WOLA
-Param.RollOffRatio    = 0.0781;
+Param.RollOffRatio    = 0.01;
 
 %For UFMC
 Param.RBsize          = 12;
@@ -33,16 +33,15 @@ Param.TXfltTap        = 102;
 Param.TXfltSideAttenu = 60; %(dB)
 
 %Symbol oversample
-Param.OverSampleType  = 'SRRC';  % FFT/SRRC/RC
-Param.OverSample      = 4;
+Param.OverSampleType  = 'FFT';  % FFT/SRRC/RC
+Param.OverSample      = 8;
 if(Param.OverSample > 1)
   switch Param.OverSampleType
     case 'SRRC'
-      Param.PulseShapeFunc = SRRCFlt(Param.OverSample, 0.1, 4);
+      Param.PulseShapeFunc = SRRCFlt(Param.OverSample/2*3, 0.1, 12);
     case 'RC'
-      Param.PulseShapeFunc = rcosine(1,Param.OverSample,'fir', 0.1, 4);
+      Param.PulseShapeFunc = rcosine(1,Param.OverSample/2*3,'fir/sqrt', 0.3, 12);
   end
-
 end
 
 %DAC up-sample
@@ -54,23 +53,20 @@ Param.DCTerm          = 0;  % 0: DC = 0 ; 1: DC != 0
 Param.ClipThreshold   = inf; % [dB], inf for no clipping
 
 %For PSD plot
-Param.PlotUpSample    = 4;
-Param.PlotRightBand   = 2047;
-Param.PlotLeftBand    = 2048;
+Param.PlotUpSample    = 8;
+Param.PlotRightBand   = 511;
+Param.PlotLeftBand    = 512;
 Param.AxisModel       = 'CF'; % CF(analog freq)/DF(discrete freq)/SC(subcarrier)
-Param.SpectrumMask    = 1; % 0:no spectrum mask ; 1: with spectrum mask
+Param.SpectrumMask    = 0; % 0:no spectrum mask ; 1: with spectrum mask
 
 %--------------------------------------------------------------------------
 % Auto Generated Parameters 
 %--------------------------------------------------------------------------
 switch Mode.Trans
-  case 'OFDM'
-    % Param.CPLength = round(Param.FFTSize/(1-Param.CPratio)*Param.CPratio);
+  case {'OFDM', 'SC'}
     Param.CPLength = round(Param.FFTSize*Param.CPratio);
-  case 'WOLA'
-    % Param.CPLength = round(Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.CPratio);
+  case {'WOLA', 'SC-WOLA'}
     Param.CPLength = round(Param.FFTSize*Param.CPratio);
-    % Param.RollOffPeriod = round((Param.FFTSize/(1-Param.CPratio-Param.RollOffRatio)*Param.RollOffRatio)/2)*2;
     Param.RollOffPeriod = round((Param.FFTSize*Param.RollOffRatio)/2)*2;
 end
 %--------------------------------------------------------------------------
@@ -82,13 +78,15 @@ for case_mode = 1:2
     Param.ToneNum         = 600;
   else
     Param.ToneNum         = 666;
+    Param.CPLength = round(Param.FFTSize*Param.CPratio);
+    Param.RollOffPeriod = round((Param.FFTSize*Param.RollOffRatio)/2)*2;
   end
   for clip_mode = 1:3
     if(case_mode == 1)
-      Mode.Trans = 'OFDM';
+      Mode.Trans = 'SC';
       Param.ClipThreshold   = inf;
     else
-      Mode.Trans = 'WOLA';      
+      Mode.Trans = 'SC-WOLA';  
       switch clip_mode
         case 1
           Param.ClipThreshold   = 6;
@@ -101,8 +99,12 @@ for case_mode = 1:2
 
     FrameFD = [];
     for run_count = 1:Param.run
-      Frame = frame_gen(Mode,Param);
-
+      switch Mode.Trans
+        case {'SC', 'SC-WOLA'}
+          Frame = frame_gen_SC(Mode,Param);
+        otherwise
+          Frame = frame_gen(Mode,Param);
+      end
       if(Param.UpSampleDAC > 1)
         Frame.Frame_TX = upsample(Frame.Frame_TX.',Param.UpSampleDAC).';
         Frame.Frame_TX = conv(Frame.Frame_TX,Param.DACInterpoFunc);
@@ -139,7 +141,7 @@ for case_mode = 1:2
         plot_axis = [-(Param.PlotLeftBand+Param.PlotRightBand)/2:1/Param.PlotUpSample:(Param.PlotLeftBand+Param.PlotRightBand)/2];
       case 'CF'
         plot_axis = [-(Param.PlotLeftBand+Param.PlotRightBand)*Param.CarrierSp/2:Param.CarrierSp/Param.PlotUpSample:...
-                   (Param.PlotLeftBand+Param.PlotRightBand)*Param.CarrierSp/2];
+          (Param.PlotLeftBand+Param.PlotRightBand)*Param.CarrierSp/2];
       case 'DF'
     end
     if(case_mode == 1)
@@ -160,7 +162,7 @@ for case_mode = 1:2
   end
 end
 
-% axis([-inf inf -100 0]);
+axis([-inf inf -100 0]);
 grid on
 switch Param.AxisModel
   case 'SC'
@@ -171,7 +173,7 @@ switch Param.AxisModel
 end
 ylabel('dB');  
 % legend('CP-OFDM','WOLA');
-legend('CP-OFDM: no clipping','WOLA: clip at 6 dB','WOLA: clip at 8 dB','WOLA: no clipping');
+legend('CP-SC: no clipping','SC-WOLA: clip at 6 dB','SC-WOLA: clip at 8 dB','SC-WOLA: no clipping');
 
 %--------------------------------------------------------------------------
 % Spectrum Mask
