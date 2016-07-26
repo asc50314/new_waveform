@@ -4,19 +4,6 @@ function [Frame]=frame_gen(Mode,Param)
 % Code for PHY Payload Field
 %-----------------------------------------------------
 %-----------------------------
-% Symbol aid structure parameter setting
-%-----------------------------
-switch Mode.Trans
-  case 'WOLA'
-    % Weighting function(Refer "OFDM Versus FBMC" p.95 FILTERING)
-    ProtoFl = ones(1,(Param.FFTSize+Param.CPLength)*Param.OverSample);
-    WeightFunc = sin(pi*(0:Param.RollOffPeriod*Param.OverSample-1)/(Param.RollOffPeriod*Param.OverSample))/sum(sin(pi*(0:Param.RollOffPeriod*Param.OverSample-1)/(Param.RollOffPeriod*Param.OverSample)));
-    WeightFunc = conv(ProtoFl,WeightFunc);
-    WeightFunc = WeightFunc(1:Param.RollOffPeriod*Param.OverSample);
-    clear ProtoFl; 
-end
-
-%-----------------------------
 % Original Data Bit Stream Generating
 %-----------------------------
 Gray16QAMmap = [  -3-3i -1-3i 1-3i 3-3i ...
@@ -40,7 +27,14 @@ switch Mode.Trans
   case 'OFDM'
     Frame.Frame_TX = [];
   case 'WOLA'
-    Frame.Frame_TX = zeros(1,Param.RollOffPeriod*Param.OverSample);
+    switch Mode.OLOverhead
+      case '0'
+        Frame.Frame_TX = zeros(1,Param.RollOffPeriod*Param.OverSample);
+      case 'ROP/2'
+        Frame.Frame_TX = zeros(1,Param.RollOffPeriod/2*Param.OverSample);
+      case 'ROP'
+        Frame.Frame_TX = zeros(1,Param.RollOffPeriod*Param.OverSample);
+    end
 end
 
 for symbol_count = 1:Param.SymbolNum
@@ -75,10 +69,13 @@ for symbol_count = 1:Param.SymbolNum
         data_count = data_count + 1;
     end
   end
-  %===============test========================
-  % Symbol16QAM = zeros(1,Param.FFTSize);
-  % Symbol16QAM(2) = 1;
-  %===============test========================
+  Frame.SymbolFD(symbol_count,:) = SymbolFD;
+
+  % Scatter plot
+  % figure (1)
+  % hold on
+  % scatter(real(SymbolFD(symbol_count,:)),imag(SymbolFD(symbol_count,:)),'b')
+
   %-----------------------------
   % Time-domain Symbol Generating
   %-----------------------------
@@ -106,14 +103,39 @@ for symbol_count = 1:Param.SymbolNum
       % Attach current symbol to Frame_TX
       Frame.Frame_TX(end+1:end+length(SymbolTD)) = SymbolTD;
     case 'WOLA' %(Refer "OFDM Versus FBMC" p.95 FILTERING)
-      %Add CPrefix and CPostfix to current symbol
-      SymbolTD = [SymbolTD(end-Param.CPLength*Param.OverSample-Param.RollOffPeriod*Param.OverSample/2+1:end) SymbolTD SymbolTD(1:Param.RollOffPeriod*Param.OverSample/2)];
-      %CP weighting
-      SymbolTD(1:Param.RollOffPeriod*Param.OverSample) = SymbolTD(1:Param.RollOffPeriod*Param.OverSample) .* WeightFunc;
-      SymbolTD(end-Param.RollOffPeriod*Param.OverSample+1:end) = SymbolTD(end-Param.RollOffPeriod*Param.OverSample+1:end) .* fliplr(WeightFunc);
-      %Symbol overlap adding
-      Frame.Frame_TX(end-Param.RollOffPeriod*Param.OverSample+1:end) = Frame.Frame_TX(end-Param.RollOffPeriod*Param.OverSample+1:end) + SymbolTD(1:Param.RollOffPeriod*Param.OverSample);
-      %Attach rest of the symbol to Frame_TX
-      Frame.Frame_TX(end+1:end+Param.CPLength*Param.OverSample+Param.FFTSize*Param.OverSample) = SymbolTD(Param.RollOffPeriod*Param.OverSample+1:end);
+      switch Mode.OLOverhead
+        case '0'
+          %Add CPrefix and CPostfix to current symbol
+          SymbolTD = [SymbolTD(end-Param.CPLength*Param.OverSample-Param.RollOffPeriod*Param.OverSample/2+1:end) SymbolTD SymbolTD(1:Param.RollOffPeriod*Param.OverSample/2)];
+          %CP weighting
+          SymbolTD(1:Param.RollOffPeriod*Param.OverSample) = SymbolTD(1:Param.RollOffPeriod*Param.OverSample) .* Param.WeightFunc;
+          SymbolTD(end-Param.RollOffPeriod*Param.OverSample+1:end) = SymbolTD(end-Param.RollOffPeriod*Param.OverSample+1:end) .* fliplr(Param.WeightFunc);
+          %Symbol overlap adding
+          Frame.Frame_TX(end-Param.RollOffPeriod*Param.OverSample+1:end) = Frame.Frame_TX(end-Param.RollOffPeriod*Param.OverSample+1:end) + SymbolTD(1:Param.RollOffPeriod*Param.OverSample);
+          %Attach rest of the symbol to Frame_TX
+          Frame.Frame_TX(end+1:end+(Param.CPLength+Param.FFTSize)*Param.OverSample) = SymbolTD(Param.RollOffPeriod*Param.OverSample+1:end);
+        case 'ROP/2'
+          %Add CPrefix and CPostfix to current symbol
+          SymbolTD = [SymbolTD(end-Param.CPLength*Param.OverSample-Param.RollOffPeriod*Param.OverSample/2+1:end) SymbolTD SymbolTD(1:Param.RollOffPeriod*Param.OverSample/2)];
+          %CP weighting
+          SymbolTD(1:Param.RollOffPeriod*Param.OverSample) = SymbolTD(1:Param.RollOffPeriod*Param.OverSample) .* Param.WeightFunc;
+          SymbolTD(end-Param.RollOffPeriod*Param.OverSample+1:end) = SymbolTD(end-Param.RollOffPeriod*Param.OverSample+1:end) .* fliplr(Param.WeightFunc);
+          %Symbol overlap adding
+          Frame.Frame_TX(end-Param.RollOffPeriod/2*Param.OverSample+1:end) = Frame.Frame_TX(end-Param.RollOffPeriod/2*Param.OverSample+1:end) + SymbolTD(1:Param.RollOffPeriod/2*Param.OverSample);
+          %Attach rest of the symbol to Frame_TX
+          Frame.Frame_TX(end+1:end+(Param.CPLength+Param.FFTSize+Param.RollOffPeriod/2)*Param.OverSample) = SymbolTD(Param.RollOffPeriod/2*Param.OverSample+1:end);
+        case 'ROP'
+          %Add CPrefix and CPostfix to current symbol
+          SymbolTD = [SymbolTD(end-Param.CPLength*Param.OverSample-Param.RollOffPeriod*Param.OverSample+1:end) SymbolTD SymbolTD(1:Param.RollOffPeriod*Param.OverSample)];
+          %CP weighting
+          SymbolTD(1:Param.RollOffPeriod*Param.OverSample) = SymbolTD(1:Param.RollOffPeriod*Param.OverSample) .* Param.WeightFunc;
+          SymbolTD(end-Param.RollOffPeriod*Param.OverSample+1:end) = SymbolTD(end-Param.RollOffPeriod*Param.OverSample+1:end) .* fliplr(Param.WeightFunc);
+          %Symbol overlap adding
+          Frame.Frame_TX(end-Param.RollOffPeriod*Param.OverSample+1:end) = Frame.Frame_TX(end-Param.RollOffPeriod*Param.OverSample+1:end) + SymbolTD(1:Param.RollOffPeriod*Param.OverSample);
+          %Attach rest of the symbol to Frame_TX
+          Frame.Frame_TX(end+1:end+(Param.CPLength+Param.FFTSize+Param.RollOffPeriod)*Param.OverSample) = SymbolTD(Param.RollOffPeriod*Param.OverSample+1:end);
+      end
+
+      
   end
 end
