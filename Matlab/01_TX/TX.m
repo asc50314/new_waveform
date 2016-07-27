@@ -11,16 +11,16 @@ clear all; close all; clc;
 Mode.Trans    = 'WOLA'; % ['OFDM' 'WOLA' 'FBMC' 'UFMC']
 Mode.Mapping  = 'QPSK'; % ['QPSK' '16QAM']
 % For WOLA
-Mode.OLOverhead = 'ROP/2'; % ['0' 'ROP/2' 'ROP']
+Mode.OLOverhead = 'ROP'; % ['0' 'ROP/2' 'ROP']
 %--------------------------------------------------------------------------
 % Execution Parameters
 %--------------------------------------------------------------------------
 %-----------------------------
 % Parameters Setting
 %-----------------------------
-Param.run             = 2;
+Param.run             = 4;
 Param.sample_rate     = 1200;
-Param.SymbolNum       = 20;
+Param.SymbolNum       = 60;
 Param.FFTSize         = 1024;
 Param.CPratio         = 0.1;
 Param.ToneNum         = 600;
