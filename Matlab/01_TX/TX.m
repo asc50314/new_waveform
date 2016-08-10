@@ -11,19 +11,19 @@ clear all; clc;
 Mode.Trans    = 'WOLA'; % ['OFDM' 'WOLA' 'FBMC' 'UFMC']
 Mode.Mapping  = 'QPSK'; % ['QPSK' '16QAM']
 % For WOLA
-Mode.OLOverhead = 'ROP'; % ['0' 'ROP/2' 'ROP']
+Mode.OLOverhead = '0'; % ['0' 'ROP/2' 'ROP']
 %--------------------------------------------------------------------------
 % Execution Parameters
 %--------------------------------------------------------------------------
 %-----------------------------
 % Parameters Setting
 %-----------------------------
-Param.run             = 100;
+Param.run             = 60;
 Param.sample_rate     = 1200;
-Param.SymbolNum       = 1;
+Param.SymbolNum       = 60;
 Param.FFTSize         = 1024;
 Param.CPratio         = 0.1;
-Param.ToneNum         = 12;
+Param.ToneNum         = 24;
 Param.CarrierSp       = 0.015; % MHz
 
 %For WOLA
@@ -31,12 +31,13 @@ Param.RollOffRatio    = 0.0781;
 
 %For UFMC
 Param.RBsize          = 12;
+Param.RBnum           = 2;
 Param.TXfltTap        = 102;
 Param.TXfltSideAttenu = 60; %(dB)
 
 %Symbol oversample
 Param.OverSampleType  = 'FFT';  % ['FFT' 'SRRC' 'RC']
-Param.OverSample      = 4;
+Param.OverSample      = 1;
 if(Param.OverSample > 1)
   switch Param.OverSampleType
     case 'SRRC'
@@ -51,13 +52,13 @@ Param.UpSampleDAC  = 1;
 if(Param.UpSampleDAC > 1)
   Param.DACInterpoFunc   = SRRCFlt(Param.UpSampleDAC*Param.OverSample, 0.3, 6);
 end
-Param.DCTerm          = 1;  % 0: DC = 0 ; 1: DC != 0
+Param.DCTerm          = 0;  % 0: DC = 0 ; 1: DC != 0
 Param.ClipThreshold   = inf; % [dB], inf for no clipping
 
 %For PSD plot
 Param.PlotUpSample    = 4;
-Param.PlotRightBand   = 50;
-Param.PlotLeftBand    = 50;
+Param.PlotRightBand   = 60;
+Param.PlotLeftBand    = 60;
 Param.PlotOOB         = [5 50];
 Param.AxisModel       = 'SC'; % CF(analog freq)/DF(discrete freq)/SC(subcarrier)
 Param.SpectrumMask    = 0; % 0:no spectrum mask ; 1: with spectrum mask
@@ -76,16 +77,24 @@ switch Mode.Trans
     Param.WeightFunc = conv(ProtoFl,Param.WeightFunc);
     Param.WeightFunc = Param.WeightFunc(1:Param.RollOffPeriod*Param.OverSample);
     clear ProtoFl; 
+  case 'UFMC'
+    Param.ToneNum = Param.RBsize*Param.RBnum;
 end
 %--------------------------------------------------------------------------
 % Frame Generating
 %--------------------------------------------------------------------------
 clip_i = 1;
-Param.ClipThreshold = [inf 4:0.1:8.5];
+Param.ClipThreshold = [inf 8];
 for clip_i = 1:length(Param.ClipThreshold)
   FrameFD = [];
   for run_count = 1:Param.run
-    Frame(clip_i,run_count) = frame_gen(Mode,Param);
+    switch Mode.Trans
+      case 'UFMC'
+        Frame(clip_i,run_count) = frame_gen_UFMC(Mode,Param);
+      otherwise
+        Frame(clip_i,run_count) = frame_gen(Mode,Param);
+    end
+
     if(Param.UpSampleDAC > 1)
       Frame(clip_i,run_count).Frame_TX = upsample(Frame(clip_i,run_count).Frame_TX.',Param.UpSampleDAC).';
       Frame(clip_i,run_count).Frame_TX = conv(Frame(clip_i,run_count).Frame_TX,Param.DACInterpoFunc);
@@ -124,6 +133,9 @@ switch Param.AxisModel
     plot_axis = [Param.ToneNum/2+Param.PlotOOB(1) : ...
       1/Param.PlotUpSample : ...
       Param.ToneNum/2+Param.PlotOOB(2)];
+    % plot_axis = [-(Param.PlotLeftBand+Param.PlotRightBand)/2 : ...
+    %   1/Param.PlotUpSample: ...
+    %   (Param.PlotLeftBand+Param.PlotRightBand)/2];
   case 'CF'
     plot_axis = [-(Param.PlotLeftBand+Param.PlotRightBand)*Param.CarrierSp/2:Param.CarrierSp/Param.PlotUpSample:...
                (Param.PlotLeftBand+Param.PlotRightBand)*Param.CarrierSp/2];
@@ -139,19 +151,29 @@ for clip_i = 2:length(Param.ClipThreshold)
   PSDClipOOB(clip_i-1,:) = PSD(clip_i,:) - PSD(1,:);
 end
 PSDClipOOB(find(PSDClipOOB<0)) = 0;
-% for clip_i = 2:length(Param.ClipThreshold)
-%   figure
-%   plot(plot_axis,10*log10(PSDClipOOB(clip_i-1,:)),'k');
-%   axis([-inf inf -100 0]);
-%   grid on
-% end
-figure(1)
-surf(plot_axis,Param.ClipThreshold(2:end),10.*log10(PSDClipOOB))
-axis([-inf inf -inf inf -80 -20])
-grid on
-xlabel('Normalozed freq [1/T]');
-ylabel('Clipping Threshold (dB)');  
-zlabel('Out-of-band Leakage (dB)');
+for clip_i = 2:length(Param.ClipThreshold)
+  % figure
+  % plot(plot_axis,10*log10(PSD(clip_i,(length(PSD)/2-Param.PlotLeftBand*Param.PlotUpSample+1)...
+  %   :(length(PSD)/2+Param.PlotRightBand*Param.PlotUpSample+1))),'b');
+
+
+  % plot(plot_axis,10*log10(PSDClipOOB(clip_i-1,:)),'k');
+  figure(4)
+  hold on
+  axis([-inf inf -70 -20]);
+  grid on
+  title('OOB Leakage When Clipped at 5dB')
+  xlabel('OOB Normalozed Freq. [1/T]')
+  ylabel('OOB Additive Leakage [dB]')
+  legend('OFDM','WOLA','UFMC')
+end
+% figure(1)
+% surf(plot_axis,Param.ClipThreshold(2:end),10.*log10(PSDClipOOB))
+% axis([-inf inf -inf inf -80 -20])
+% grid on
+% xlabel('Normalozed freq [1/T]');
+% ylabel('Clipping Threshold (dB)');  
+% zlabel('Out-of-band Leakage (dB)');
 
 
 % for run_count = 1:Param.run
