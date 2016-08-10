@@ -4,7 +4,7 @@
 %   2016/7/6 by Wu Chang Ting & Friedrich Lee
 %--------------------------------------------------------------------------
 %**************************************************************************
-clear all; clc;
+clear all; clc; close all;
 %--------------------------------------------------------------------------
 % Mode Parameters
 %--------------------------------------------------------------------------
@@ -20,7 +20,7 @@ Mode.OLOverhead = '0'; % ['0' 'ROP/2' 'ROP']
 %-----------------------------
 Param.run             = 60;
 Param.sample_rate     = 1200;
-Param.SymbolNum       = 60;
+Param.SymbolNum       = 1;
 Param.FFTSize         = 1024;
 Param.CPratio         = 0.1;
 Param.ToneNum         = 24;
@@ -57,8 +57,8 @@ Param.ClipThreshold   = inf; % [dB], inf for no clipping
 
 %For PSD plot
 Param.PlotUpSample    = 4;
-Param.PlotRightBand   = 60;
-Param.PlotLeftBand    = 60;
+Param.PlotRightBand   = 450;
+Param.PlotLeftBand    = 450;
 Param.PlotOOB         = [5 50];
 Param.AxisModel       = 'SC'; % CF(analog freq)/DF(discrete freq)/SC(subcarrier)
 Param.SpectrumMask    = 0; % 0:no spectrum mask ; 1: with spectrum mask
@@ -83,97 +83,108 @@ end
 %--------------------------------------------------------------------------
 % Frame Generating
 %--------------------------------------------------------------------------
-clip_i = 1;
-Param.ClipThreshold = [inf 8];
-for clip_i = 1:length(Param.ClipThreshold)
-  FrameFD = [];
-  for run_count = 1:Param.run
-    switch Mode.Trans
-      case 'UFMC'
-        Frame(clip_i,run_count) = frame_gen_UFMC(Mode,Param);
-      otherwise
-        Frame(clip_i,run_count) = frame_gen(Mode,Param);
-    end
+Param.ClipThreshold = [8 6 4];
+ROP = [4:4:80];
 
-    if(Param.UpSampleDAC > 1)
-      Frame(clip_i,run_count).Frame_TX = upsample(Frame(clip_i,run_count).Frame_TX.',Param.UpSampleDAC).';
-      Frame(clip_i,run_count).Frame_TX = conv(Frame(clip_i,run_count).Frame_TX,Param.DACInterpoFunc);
-    end
-    %-----------------------------
-    % Clipping
-    %-----------------------------
-    if Param.ClipThreshold(clip_i) ~= inf
-      FramePower = Frame(clip_i,run_count).Frame_TX.*conj(Frame(clip_i,run_count).Frame_TX);
-      varFrame = mean(FramePower);
-      for i = 1:length(FramePower)
-        if(FramePower(i) > varFrame * (10^(Param.ClipThreshold(clip_i)/10)))
-          Frame(clip_i,run_count).Frame_TX(i) = Frame(clip_i,run_count).Frame_TX(i)*sqrt((varFrame * (10^(Param.ClipThreshold(clip_i)/10)))/FramePower(i));
+for rop_i = 1:length(ROP)
+  % Param.RollOffRatio = ROP(rop_i);
+  % Param.CPLength = round(Param.FFTSize*Param.CPratio);
+  Param.RollOffPeriod = ROP(rop_i);
+  % WOLA weighting function
+  ProtoFl = ones(1,(Param.FFTSize+Param.CPLength)*Param.OverSample);
+  Param.WeightFunc = sin(pi*(0:Param.RollOffPeriod*Param.OverSample-1)/(Param.RollOffPeriod*Param.OverSample))/sum(sin(pi*(0:Param.RollOffPeriod*Param.OverSample-1)/(Param.RollOffPeriod*Param.OverSample)));
+  Param.WeightFunc = conv(ProtoFl,Param.WeightFunc);
+  Param.WeightFunc = Param.WeightFunc(1:Param.RollOffPeriod*Param.OverSample);
+  clear ProtoFl; 
+
+  for clip_i = 1:length(Param.ClipThreshold)
+    FrameFD = [];
+    rng(1);
+    for run_count = 1:Param.run
+      switch Mode.Trans
+        case 'UFMC'
+          Frame(rop_i,clip_i,run_count) = frame_gen_UFMC(Mode,Param);
+        otherwise
+          Frame(run_count) = frame_gen(Mode,Param);
+      end
+
+      if(Param.UpSampleDAC > 1)
+        Frame(run_count).Frame_TX = upsample(Frame(run_count).Frame_TX.',Param.UpSampleDAC).';
+        Frame(run_count).Frame_TX = conv(Frame(run_count).Frame_TX,Param.DACInterpoFunc);
+      end
+      %-----------------------------
+      % Clipping
+      %-----------------------------
+      if Param.ClipThreshold(clip_i) ~= inf
+        FramePower = Frame(run_count).Frame_TX.*conj(Frame(run_count).Frame_TX);
+        varFrame = mean(FramePower);
+        for i = 1:length(FramePower)
+          if(FramePower(i) > varFrame * (10^(Param.ClipThreshold(clip_i)/10)))
+            Frame(run_count).Frame_TX(i) = Frame(run_count).Frame_TX(i)*sqrt((varFrame * (10^(Param.ClipThreshold(clip_i)/10)))/FramePower(i));
+          end
         end
       end
+      %-----------------------------
+      % PSD FFT to Get FrameFD
+      %-----------------------------
+      PSD_FFTSize = ceil(length(Frame(run_count).Frame_TX)/Param.FFTSize/Param.PlotUpSample/Param.UpSampleDAC/Param.OverSample)*Param.FFTSize*Param.PlotUpSample*Param.UpSampleDAC*Param.OverSample;
+      FrameFDTemp = fftshift(fft(Frame(run_count).Frame_TX.',PSD_FFTSize)).';
+      FrameFDTemp = downsample(FrameFDTemp,PSD_FFTSize/Param.FFTSize/Param.PlotUpSample/Param.UpSampleDAC/Param.OverSample);
+      FrameFDTemp = FrameFDTemp.*conj(FrameFDTemp);
+      FrameFD = [FrameFD;FrameFDTemp];
     end
     %-----------------------------
-    % PSD FFT to Get FrameFD
+    % Averaging FrameFD to Get PSD
     %-----------------------------
-    PSD_FFTSize = ceil(length(Frame(clip_i,run_count).Frame_TX)/Param.FFTSize/Param.PlotUpSample/Param.UpSampleDAC/Param.OverSample)*Param.FFTSize*Param.PlotUpSample*Param.UpSampleDAC*Param.OverSample;
-    FrameFDTemp = fftshift(fft(Frame(clip_i,run_count).Frame_TX.',PSD_FFTSize)).';
-    FrameFDTemp = downsample(FrameFDTemp,PSD_FFTSize/Param.FFTSize/Param.PlotUpSample/Param.UpSampleDAC/Param.OverSample);
-    FrameFDTemp = FrameFDTemp.*conj(FrameFDTemp);
-    FrameFD = [FrameFD;FrameFDTemp];
+    PSD(rop_i,:,clip_i) = mean(FrameFD,1);
+    clear FrameFD;
+    PSD(rop_i,:,clip_i) = PSD(rop_i,:,clip_i)./max(PSD(rop_i,:,clip_i));  
   end
-  %-----------------------------
-  % Averaging FrameFD to Get PSD
-  %-----------------------------
-  PSD(clip_i,:) = mean(FrameFD,1);
-  clear FrameFD;
-  PSD(clip_i,:) = PSD(clip_i,:)./max(PSD(clip_i,:));  
 end
 
 switch Param.AxisModel
   case 'SC'
-    plot_axis = [Param.ToneNum/2+Param.PlotOOB(1) : ...
-      1/Param.PlotUpSample : ...
-      Param.ToneNum/2+Param.PlotOOB(2)];
-    % plot_axis = [-(Param.PlotLeftBand+Param.PlotRightBand)/2 : ...
-    %   1/Param.PlotUpSample: ...
-    %   (Param.PlotLeftBand+Param.PlotRightBand)/2];
+    plot_axis = [-(Param.PlotLeftBand+Param.PlotRightBand)/2 : ...
+      1/Param.PlotUpSample: ...
+      (Param.PlotLeftBand+Param.PlotRightBand)/2];
   case 'CF'
     plot_axis = [-(Param.PlotLeftBand+Param.PlotRightBand)*Param.CarrierSp/2:Param.CarrierSp/Param.PlotUpSample:...
                (Param.PlotLeftBand+Param.PlotRightBand)*Param.CarrierSp/2];
 end
 
-PSD = PSD(:,length(PSD(clip_i,:))/2+(Param.ToneNum/2+Param.PlotOOB(1))*Param.PlotUpSample+1 : ...
-  length(PSD(clip_i,:))/2+(Param.ToneNum/2+Param.PlotOOB(2))*Param.PlotUpSample+1);
-
-for clip_i = 2:length(Param.ClipThreshold)
-  %-----------------------------
-  % Find Clipping OOB Leakage
-  %-----------------------------
-  PSDClipOOB(clip_i-1,:) = PSD(clip_i,:) - PSD(1,:);
-end
-PSDClipOOB(find(PSDClipOOB<0)) = 0;
-for clip_i = 2:length(Param.ClipThreshold)
-  % figure
-  % plot(plot_axis,10*log10(PSD(clip_i,(length(PSD)/2-Param.PlotLeftBand*Param.PlotUpSample+1)...
-  %   :(length(PSD)/2+Param.PlotRightBand*Param.PlotUpSample+1))),'b');
+for clip_i = 1:length(Param.ClipThreshold)
+  figure
+  % hold on
+  % plot(plot_axis,10*log10(PSD(1,(length(PSD(1,:,1))/2-Param.PlotLeftBand*Param.PlotUpSample+1)...
+  %   :(length(PSD(1,:,1))/2+Param.PlotRightBand*Param.PlotUpSample+1),1)),'g');
 
 
   % plot(plot_axis,10*log10(PSDClipOOB(clip_i-1,:)),'k');
-  figure(4)
+  % figure(4)
+  % hold on
+  % axis([-inf inf -70 -20]);
+  % grid on
+  % title('OOB Leakage When Clipped at 5dB')
+  % xlabel('OOB Normalozed Freq. [1/T]')
+  % ylabel('OOB Additive Leakage [dB]')
+  % legend('OFDM','WOLA','UFMC')
+  % figure
+  surf(plot_axis.',ROP.',10*log10(PSD(:, ...
+    (length(PSD(1,:,1))/2-Param.PlotLeftBand*Param.PlotUpSample+1)...
+    :(length(PSD(1,:,1))/2+Param.PlotRightBand*Param.PlotUpSample+1),clip_i)))
   hold on
-  axis([-inf inf -70 -20]);
+  contour3(plot_axis.',ROP.',10*log10(PSD(:, ...
+    (length(PSD(1,:,1))/2-Param.PlotLeftBand*Param.PlotUpSample+1)...
+    :(length(PSD(1,:,1))/2+Param.PlotRightBand*Param.PlotUpSample+1),clip_i)),'k')
+  % axis([-inf inf -inf inf -80 0])
   grid on
-  title('OOB Leakage When Clipped at 5dB')
-  xlabel('OOB Normalozed Freq. [1/T]')
-  ylabel('OOB Additive Leakage [dB]')
-  legend('OFDM','WOLA','UFMC')
+  title('PSD under different ROP')
+  xlabel('Normalozed freq [1/T]');
+  ylabel('Roll-off-period (Samples)');  
+  zlabel('PSD (dB)');
+  shading interp
 end
-% figure(1)
-% surf(plot_axis,Param.ClipThreshold(2:end),10.*log10(PSDClipOOB))
-% axis([-inf inf -inf inf -80 -20])
-% grid on
-% xlabel('Normalozed freq [1/T]');
-% ylabel('Clipping Threshold (dB)');  
-% zlabel('Out-of-band Leakage (dB)');
+
 
 
 % for run_count = 1:Param.run
